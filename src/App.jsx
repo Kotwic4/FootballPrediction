@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { tournament } from './data/tournament.js';
 import { buildStandings } from './standings.js';
 import { normalizeKnockout } from './knockout.js';
+import { fixedR32Teams } from './bracket.js';
 import GroupStage from './components/GroupStage.jsx';
-import KnockoutStage from './components/KnockoutStage.jsx';
 import BracketStage from './components/BracketStage.jsx';
 import ProgressPanel from './components/ProgressPanel.jsx';
 
@@ -56,47 +56,13 @@ export default function App() {
     });
   };
 
-  const toggleKnockoutTeam = (roundId, team, max) => {
+  // Best thirds confirmed in the group stage. The round of 32 is the 24 fixed
+  // qualifiers (group winners + runners-up) plus the chosen thirds.
+  const setThirds = (thirdTeams) => {
     setPredictions((prev) => {
-      const current = prev.knockout[roundId] ?? [];
-      let next;
-      if (current.includes(team)) {
-        next = current.filter((t) => t !== team);
-      } else {
-        if (current.length >= max) return prev; // round is full
-        next = [...current, team];
-      }
-      // Re-validate so removals cascade into later rounds.
-      const knockout = normalizeKnockout({ ...prev.knockout, [roundId]: next });
-      return { ...prev, knockout };
+      const r32 = [...fixedR32Teams(standings), ...thirdTeams.slice(0, 8)];
+      return { ...prev, knockout: normalizeKnockout({ ...prev.knockout, r32 }) };
     });
-  };
-
-  // Clear a single knockout round (cascades into later rounds via normalize).
-  const clearKnockoutRound = (roundId) => {
-    setPredictions((prev) => {
-      const knockout = normalizeKnockout({ ...prev.knockout, [roundId]: [] });
-      return { ...prev, knockout };
-    });
-  };
-
-  // Fill the round of 32 with the teams the group standings imply advance.
-  const autofillR32 = () => {
-    setPredictions((prev) => {
-      const knockout = normalizeKnockout({
-        ...prev.knockout,
-        r32: [...standings.advancers],
-      });
-      return { ...prev, knockout };
-    });
-  };
-
-  // Bracket: set the full round-of-32 (24 fixed qualifiers + chosen thirds).
-  const setR32 = (teams) => {
-    setPredictions((prev) => ({
-      ...prev,
-      knockout: normalizeKnockout({ ...prev.knockout, r32: teams }),
-    }));
   };
 
   // Bracket: pick the winner of a single match; the loser (and anything that
@@ -187,9 +153,10 @@ export default function App() {
       </header>
 
       <div className="info-bar">
-        Wypełnij swoje typy i kliknij <strong>„Zapisz do Excel”</strong>, a następnie
-        wyślij plik Excel do organizatora. Możesz kliknąć <strong>„Wczytaj Excel”</strong>,
-        aby kontynuować wypełnianie lub zmodyfikować już utworzony plik.
+        Wypełnij swoje typy, kliknij <strong>„Zapisz do Excel”</strong> i
+        {' '}<strong>wyślij pobrany plik e-mailem do organizatora</strong> 📧.
+        Aby kontynuować później lub poprawić typy, kliknij
+        {' '}<strong>„Wczytaj Excel”</strong> i wybierz swój plik.
       </div>
 
       <ProgressPanel predictions={predictions} />
@@ -207,12 +174,6 @@ export default function App() {
         >
           Faza pucharowa
         </button>
-        <button
-          className={tab === 'tree' ? 'tab active' : 'tab'}
-          onClick={() => setTab('tree')}
-        >
-          Drzewo
-        </button>
       </nav>
 
       <main className="content">
@@ -221,22 +182,15 @@ export default function App() {
             predictions={predictions.groups}
             onPick={setGroupPick}
             standings={standings}
+            r32={predictions.knockout.r32 ?? []}
+            onSetThirds={setThirds}
+            onGoToKnockout={() => setTab('knockout')}
           />
         )}
         {tab === 'knockout' && (
-          <KnockoutStage
-            predictions={predictions.knockout}
-            onToggle={toggleKnockoutTeam}
-            onClearRound={clearKnockoutRound}
-            onAutofillR32={autofillR32}
-            standings={standings}
-          />
-        )}
-        {tab === 'tree' && (
           <BracketStage
             knockout={predictions.knockout}
             standings={standings}
-            onSetR32={setR32}
             onSetWinner={setMatchWinner}
           />
         )}

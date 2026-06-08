@@ -1,10 +1,12 @@
 import { tournament } from '../data/tournament.js';
-import {
-  BRACKET_COLUMNS,
-  resolveBracket,
-  thirdPlaceTeams,
-  fixedR32Teams,
-} from '../bracket.js';
+import { BRACKET_COLUMNS, resolveBracket } from '../bracket.js';
+
+const POINTS = Object.fromEntries(tournament.rounds.map((r) => [r.id, r.points]));
+
+function columnHeader(col) {
+  if (col.roundId === 'final') return `${col.label} · ${POINTS.final} pkt · mistrz ${POINTS.champion} pkt`;
+  return `${col.label} · ${POINTS[col.roundId]} pkt`;
+}
 
 function MatchCard({ match, onPick }) {
   const { a, b, winner, target } = match;
@@ -30,93 +32,60 @@ function MatchCard({ match, onPick }) {
   );
 }
 
-export default function BracketStage({ knockout, standings, onSetR32, onSetWinner }) {
+export default function BracketStage({ knockout, standings, onSetWinner }) {
   const groupsComplete = tournament.groupOrder.every((g) => standings.byGroup[g].complete);
+  const thirdsTeams = new Set(standings.thirds.map((t) => t.team));
+  const selectedThirds = (knockout.r32 ?? []).filter((t) => thirdsTeams.has(t));
 
   if (!groupsComplete) {
-    const done = Object.values(standings.byGroup).reduce(
-      (s, gs) => s + gs.ranked.reduce((a, r) => a + r.played, 0) / 2,
-      0,
-    );
     return (
       <div className="bracket-stage">
         <p className="warn">
-          Aby zbudować drabinkę, najpierw uzupełnij <strong>wszystkie 72 mecze
-          grupowe</strong> (zakładka „Faza grupowa”). Uzupełniono: {Math.round(done)}/72.
+          Aby zobaczyć drabinkę, najpierw uzupełnij <strong>wszystkie mecze grupowe</strong>
+          {' '}w zakładce „Faza grupowa”.
+        </p>
+      </div>
+    );
+  }
+  if (selectedThirds.length !== 8) {
+    return (
+      <div className="bracket-stage">
+        <p className="warn">
+          Na dole zakładki „Faza grupowa” zatwierdź <strong>8 drużyn z 3. miejsc</strong>
+          {' '}(zaznaczono {selectedThirds.length}/8), aby zbudować drabinkę.
         </p>
       </div>
     );
   }
 
-  const thirds = thirdPlaceTeams(standings);
-  const selectedThirds = thirds.filter((t) => knockout.r32?.includes(t.team));
-  const fixed = fixedR32Teams(standings);
-
-  const toggleThird = (team) => {
-    const has = knockout.r32?.includes(team);
-    let nextThirds = selectedThirds.map((t) => t.team);
-    if (has) nextThirds = nextThirds.filter((t) => t !== team);
-    else {
-      if (nextThirds.length >= 8) return; // already 8 chosen
-      nextThirds = [...nextThirds, team];
-    }
-    onSetR32([...fixed, ...nextThirds]);
-  };
-
-  const eightChosen = selectedThirds.length === 8;
   const { matches } = resolveBracket(knockout, standings);
 
   return (
     <div className="bracket-stage">
       <p className="legend">
-        Oficjalna drabinka MŚ 2026. Miejsca 1–2 z grup są przydzielone
-        automatycznie. Wybierz <strong>8 z 12</strong> drużyn z 3. miejsc, a potem
-        klikaj zwycięzców kolejnych meczów — awansują do następnej rundy.
+        Oficjalna drabinka MŚ 2026. Klikaj zwycięzców kolejnych meczów — awansują do
+        następnej rundy. Punkty za awans drużyny: <strong>1/16 – 1</strong>,
+        {' '}<strong>1/8 – 2</strong>, <strong>ćwierćfinał – 3</strong>,
+        {' '}<strong>półfinał – 4</strong>, <strong>finał – 5</strong>,
+        {' '}<strong>3. miejsce – 5</strong>, <strong>mistrz – 10</strong>.
       </p>
 
-      <details className="thirds-picker" open={!eightChosen}>
-        <summary>
-          🥉 Drużyny z 3. miejsc — wybrano <strong>{selectedThirds.length}/8</strong>
-        </summary>
-        <div className="thirds-grid">
-          {thirds.map((t) => {
-            const sel = knockout.r32?.includes(t.team);
-            const disabled = !sel && selectedThirds.length >= 8;
-            return (
-              <button
-                key={t.group}
-                type="button"
-                disabled={disabled || !t.team}
-                className={'team-chip' + (sel ? ' selected' : '') + (disabled ? ' disabled' : '')}
-                onClick={() => toggleThird(t.team)}
-              >
-                <span className="chip-group">{t.group}</span> {t.team ?? '—'}
-              </button>
-            );
-          })}
-        </div>
-      </details>
-
-      {!eightChosen ? (
-        <p className="warn">Wybierz dokładnie 8 drużyn z 3. miejsc, aby zobaczyć drabinkę.</p>
-      ) : (
-        <div className="bracket-scroll">
-          <div className="bracket">
-            {BRACKET_COLUMNS.map((col) => (
-              <div key={col.roundId} className={'bracket-col col-' + col.roundId}>
-                <div className="bracket-col-head">{col.label}</div>
-                <div className="bracket-col-body">
-                  {col.matches.map((nr) => (
-                    <div key={nr} className="bk-slot">
-                      <MatchCard match={matches[nr]} onPick={onSetWinner} />
-                    </div>
-                  ))}
-                </div>
+      <div className="bracket-scroll">
+        <div className="bracket">
+          {BRACKET_COLUMNS.map((col) => (
+            <div key={col.roundId} className={'bracket-col col-' + col.roundId}>
+              <div className="bracket-col-head">{columnHeader(col)}</div>
+              <div className="bracket-col-body">
+                {col.matches.map((nr) => (
+                  <div key={nr} className="bk-slot">
+                    <MatchCard match={matches[nr]} onPick={onSetWinner} />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -217,6 +217,16 @@ body {
 
 .best-thirds { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border); }
 .best-thirds h3 { margin: 0 0 6px; }
+.inline-btn { margin-left: 8px; vertical-align: middle; }
+.standings-row.third-select { cursor: pointer; }
+.standings-row.third-select:hover:not(.is-disabled) { background: rgba(56, 189, 248, 0.12); }
+.standings-row.third-select.is-disabled { opacity: 0.5; cursor: not-allowed; }
+.check { color: var(--muted); font-size: 0.82rem; }
+.check.on { color: var(--accent); font-weight: 700; }
+
+.goto-knockout { margin-top: 28px; text-align: center; }
+.goto-hint { color: var(--muted); font-size: 0.9rem; }
+.btn-big { font-size: 1.05rem; padding: 12px 24px; }
 
 .matches { display: flex; flex-direction: column; gap: 6px; }
 .match-row {
@@ -350,17 +360,28 @@ body {
   color: var(--accent-2);
 }
 
-.bracket-scroll { overflow-x: auto; padding-bottom: 12px; }
-.bracket { display: flex; gap: 10px; align-items: stretch; min-width: max-content; }
-.bracket-col { display: flex; flex-direction: column; min-width: 150px; max-width: 190px; }
+/* Scrollable panel: the bracket scrolls inside itself (both directions) so the
+   round labels can stick to the top while you scroll a tall bracket on mobile. */
+.bracket-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 150px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 10px 12px;
+}
+.bracket { display: flex; gap: 12px; align-items: stretch; min-width: max-content; }
+.bracket-col { display: flex; flex-direction: column; min-width: 170px; }
 .bracket-col-head {
   font-weight: 600;
   text-align: center;
-  margin-bottom: 6px;
   color: var(--muted);
   font-size: 0.8rem;
+  padding: 10px 0 8px;
   position: sticky;
-  left: 0;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
 }
 .bracket-col-body {
   flex: 1;
@@ -370,13 +391,14 @@ body {
 /* Each match lives in an equal-height slot and is vertically centred in it.
    A column with half as many slots centres each match across two slots of the
    previous column, so feeders line up regardless of card height. */
+/* flex-basis auto => each slot is at least as tall as its card (no overlap);
+   flex-grow distributes the extra height so feeders stay centred/aligned. */
 .bk-slot {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 2px 0;
-  min-height: 0;
+  padding: 4px 0;
 }
 .col-third .bracket-col-body { justify-content: center; }
 .col-third .bk-slot { flex: 0 0 auto; }
@@ -390,18 +412,15 @@ body {
 }
 .bk-team {
   text-align: left;
-  padding: 5px 8px;
+  padding: 6px 9px;
   background: none;
   border: none;
   border-bottom: 1px solid var(--border);
   color: var(--text);
   cursor: pointer;
-  font-size: 0.74rem;
-  line-height: 1.2;
+  font-size: 0.8rem;
+  line-height: 1.3;
   width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .bk-team:last-child { border-bottom: none; }
 .bk-team:hover:not(.tbd) { background: var(--surface-2); }
