@@ -94,14 +94,28 @@ export function exportToXlsx(predictions) {
 
 export function downloadXlsx(predictions, filename = 'typy-ms-2026.xlsx') {
   const blob = exportToXlsx(predictions);
+
+  // msSaveBlob path for older mobile browsers that support it.
+  if (typeof navigator !== 'undefined' && navigator.msSaveOrOpenBlob) {
+    navigator.msSaveOrOpenBlob(blob, filename);
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  // IMPORTANT: some mobile browsers (notably Samsung Internet and some Android
+  // Chrome builds) fetch the blob asynchronously after click(). Removing the
+  // anchor or revoking the object URL right away cancels the download, so we
+  // defer cleanup. iOS Safari works either way, hence the cross-device gap.
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 10000);
 }
 
 const VALID_GROUP_PICK = { '1': '1', 'X': 'X', '2': '2' };
