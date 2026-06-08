@@ -4,6 +4,7 @@ import { buildStandings } from './standings.js';
 import { normalizeKnockout } from './knockout.js';
 import GroupStage from './components/GroupStage.jsx';
 import KnockoutStage from './components/KnockoutStage.jsx';
+import BracketStage from './components/BracketStage.jsx';
 import ProgressPanel from './components/ProgressPanel.jsx';
 
 const STORAGE_KEY = 'ms2026-typy';
@@ -90,6 +91,28 @@ export default function App() {
     });
   };
 
+  // Bracket: set the full round-of-32 (24 fixed qualifiers + chosen thirds).
+  const setR32 = (teams) => {
+    setPredictions((prev) => ({
+      ...prev,
+      knockout: normalizeKnockout({ ...prev.knockout, r32: teams }),
+    }));
+  };
+
+  // Bracket: pick the winner of a single match; the loser (and anything that
+  // depended on it) is pruned from the target round.
+  const setMatchWinner = (targetRound, [a, b], team) => {
+    setPredictions((prev) => {
+      const cur = prev.knockout[targetRound] ?? [];
+      const next = cur.filter((t) => t !== a && t !== b);
+      if (!cur.includes(team)) next.push(team);
+      return {
+        ...prev,
+        knockout: normalizeKnockout({ ...prev.knockout, [targetRound]: next }),
+      };
+    });
+  };
+
   const handleExport = async () => {
     let who = name.trim();
     if (!who) {
@@ -164,9 +187,9 @@ export default function App() {
       </header>
 
       <div className="info-bar">
-        Typy zapisują się automatycznie w tej przeglądarce. Użyj
-        {' '}<strong>„Zapisz do Excel”</strong>, aby przesłać je do Maćka, oraz
-        {' '}<strong>„Wczytaj Excel”</strong>, aby kontynuować z wcześniejszego pliku.
+        Wypełnij swoje typy i kliknij <strong>„Zapisz do Excel”</strong>, a następnie
+        wyślij plik Excel do organizatora. Możesz kliknąć <strong>„Wczytaj Excel”</strong>,
+        aby kontynuować wypełnianie lub zmodyfikować już utworzony plik.
       </div>
 
       <ProgressPanel predictions={predictions} />
@@ -183,6 +206,12 @@ export default function App() {
           onClick={() => setTab('knockout')}
         >
           Faza pucharowa
+        </button>
+        <button
+          className={tab === 'tree' ? 'tab active' : 'tab'}
+          onClick={() => setTab('tree')}
+        >
+          Drzewo
         </button>
       </nav>
 
@@ -201,6 +230,14 @@ export default function App() {
             onClearRound={clearKnockoutRound}
             onAutofillR32={autofillR32}
             standings={standings}
+          />
+        )}
+        {tab === 'tree' && (
+          <BracketStage
+            knockout={predictions.knockout}
+            standings={standings}
+            onSetR32={setR32}
+            onSetWinner={setMatchWinner}
           />
         )}
       </main>

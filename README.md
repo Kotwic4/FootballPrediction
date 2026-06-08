@@ -23,8 +23,12 @@ zgodnym z arkuszem rodzinnym.
   poprzedniej rundy** — usunięcie drużyny we wcześniejszej rundzie usuwa ją też
   z kolejnych.
 
-- **Drzewo** — tryb podglądu Twoich typów pucharowych w formie kolumn
-  (1/16 → 1/8 → … → Mistrz), zwężających się ku mistrzowi.
+- **Drzewo** — interaktywna, oficjalna drabinka MŚ 2026. Wymaga uzupełnienia
+  wszystkich 72 meczów grupowych. Miejsca 1–2 z grup przydzielane są
+  automatycznie, Ty wybierasz **8 z 12** drużyn z 3. miejsc (przydział do
+  konkretnych par liczony jest automatycznie wg reguł FIFA), a następnie
+  klikasz zwycięzców kolejnych meczów aż do finału i meczu o 3. miejsce.
+  Zakładka „Drzewo” i „Faza pucharowa” edytują te same typy.
 
   Punktacja rund:
 
@@ -74,10 +78,12 @@ src/
 ├── data/tournament.js    # dane turnieju (mecze, grupy, rundy, punktacja)
 ├── standings.js          # tabele grup + ranking najlepszych trzecich miejsc
 ├── knockout.js           # zagnieżdżanie rund (kandydaci + kaskadowe usuwanie)
+├── bracket.js            # oficjalna drabinka 2026 + przydział 3. miejsc (matching)
 ├── components/
 │   ├── GroupStage.jsx     # typowanie fazy grupowej (1/X/2) + tabele
 │   ├── KnockoutStage.jsx  # typowanie fazy pucharowej (zagnieżdżone rundy)
-│   ├── KnockoutTree.jsx   # wizualizacja „drzewa” (kolumny rund)
+│   ├── BracketStage.jsx   # interaktywna drabinka „Drzewo”
+│   ├── Standings.jsx      # współdzielone tabele wyników
 │   └── ProgressPanel.jsx  # zwijany panel postępu
 ├── excel.js              # eksport/import .xlsx (SheetJS)
 ├── App.jsx               # stan, zakładki, zapis lokalny
