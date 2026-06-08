@@ -4,7 +4,6 @@ import { buildStandings } from './standings.js';
 import { normalizeKnockout } from './knockout.js';
 import GroupStage from './components/GroupStage.jsx';
 import KnockoutStage from './components/KnockoutStage.jsx';
-import KnockoutTree from './components/KnockoutTree.jsx';
 import ProgressPanel from './components/ProgressPanel.jsx';
 
 const STORAGE_KEY = 'ms2026-typy';
@@ -68,6 +67,14 @@ export default function App() {
       }
       // Re-validate so removals cascade into later rounds.
       const knockout = normalizeKnockout({ ...prev.knockout, [roundId]: next });
+      return { ...prev, knockout };
+    });
+  };
+
+  // Clear a single knockout round (cascades into later rounds via normalize).
+  const clearKnockoutRound = (roundId) => {
+    setPredictions((prev) => {
+      const knockout = normalizeKnockout({ ...prev.knockout, [roundId]: [] });
       return { ...prev, knockout };
     });
   };
@@ -177,12 +184,6 @@ export default function App() {
         >
           Faza pucharowa
         </button>
-        <button
-          className={tab === 'tree' ? 'tab active' : 'tab'}
-          onClick={() => setTab('tree')}
-        >
-          Drzewo
-        </button>
       </nav>
 
       <main className="content">
@@ -197,11 +198,11 @@ export default function App() {
           <KnockoutStage
             predictions={predictions.knockout}
             onToggle={toggleKnockoutTeam}
-            advancers={standings.advancers}
+            onClearRound={clearKnockoutRound}
             onAutofillR32={autofillR32}
+            standings={standings}
           />
         )}
-        {tab === 'tree' && <KnockoutTree knockout={predictions.knockout} />}
       </main>
     </div>
   );

@@ -1,10 +1,44 @@
 import { useState } from 'react';
 import { tournament } from '../data/tournament.js';
 import { roundCandidates, KO_PARENT } from '../knockout.js';
+import { GroupTable, BestThirdsTable } from './Standings.jsx';
 
 const ROUND_LABELS = Object.fromEntries(tournament.rounds.map((r) => [r.id, r.label]));
 
-function RoundPicker({ round, knockout, advancers, onToggle, onAutofillR32 }) {
+function GroupResultsPanel({ standings }) {
+  return (
+    <details className="ko-results">
+      <summary>📊 Tabele grup i najlepsze trzecie miejsca</summary>
+      <div className="ko-results-body">
+        <div className="ko-results-grid">
+          {tournament.groupOrder.map((g) => (
+            <GroupTable key={g} group={g} {...standings.byGroup[g]} />
+          ))}
+        </div>
+        <BestThirdsTable thirds={standings.thirds} cutoffTied={standings.cutoffTied} />
+      </div>
+    </details>
+  );
+}
+
+function RoundHeader({ round, count, full, onClear }) {
+  return (
+    <div className="round-title">
+      <span>{round.label}</span>
+      <span className={full ? 'round-count complete' : 'round-count'}>
+        {count}/{round.count}
+      </span>
+      <span className="round-points">{round.points} pkt / drużynę</span>
+      {count > 0 && (
+        <button className="btn btn-small btn-ghost round-clear" onClick={() => onClear(round.id)}>
+          ✕ Wyczyść rundę
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RoundPicker({ round, knockout, standings, onToggle, onAutofillR32, onClear }) {
   const selected = knockout[round.id] ?? [];
   const candidates = roundCandidates(round.id, knockout);
   const candidateByGroup = tournament.groupOrder.map((g) => ({
@@ -17,7 +51,7 @@ function RoundPicker({ round, knockout, advancers, onToggle, onAutofillR32 }) {
   if (round.id !== 'r32' && candidates.length === 0) {
     return (
       <section className="round-block">
-        <RoundHeader round={round} count={count} full={full} />
+        <RoundHeader round={round} count={count} full={full} onClear={onClear} />
         <p className="warn">
           Najpierw wybierz drużyny w rundzie „{ROUND_LABELS[KO_PARENT[round.id]]}”.
         </p>
@@ -27,16 +61,19 @@ function RoundPicker({ round, knockout, advancers, onToggle, onAutofillR32 }) {
 
   return (
     <section className="round-block">
-      <RoundHeader round={round} count={count} full={full} />
+      <RoundHeader round={round} count={count} full={full} onClear={onClear} />
       {round.id === 'r32' && (
-        <div className="round-actions">
-          <button className="btn btn-small" onClick={onAutofillR32}>
-            ⤵︎ Uzupełnij z tabel grupowych
-          </button>
-          <span className="round-hint">
-            <span className="chip-advance">awans</span> = wg Twoich tabel drużyna wychodzi z grupy
-          </span>
-        </div>
+        <>
+          <GroupResultsPanel standings={standings} />
+          <div className="round-actions">
+            <button className="btn btn-small" onClick={onAutofillR32}>
+              ⤵︎ Uzupełnij z tabel grupowych
+            </button>
+            <span className="round-hint">
+              <span className="chip-advance">awans</span> = wg Twoich tabel drużyna wychodzi z grupy
+            </span>
+          </div>
+        </>
       )}
       <div className="team-grid">
         {candidateByGroup.map(({ g, teams }) =>
@@ -46,7 +83,7 @@ function RoundPicker({ round, knockout, advancers, onToggle, onAutofillR32 }) {
               {teams.map((team) => {
                 const isSel = selected.includes(team);
                 const disabled = !isSel && full;
-                const advancing = round.id === 'r32' && advancers.has(team);
+                const advancing = round.id === 'r32' && standings.advancers.has(team);
                 return (
                   <button
                     key={team}
@@ -72,19 +109,7 @@ function RoundPicker({ round, knockout, advancers, onToggle, onAutofillR32 }) {
   );
 }
 
-function RoundHeader({ round, count, full }) {
-  return (
-    <h2 className="round-title">
-      {round.label}
-      <span className={full ? 'round-count complete' : 'round-count'}>
-        {count}/{round.count}
-      </span>
-      <span className="round-points">{round.points} pkt / drużynę</span>
-    </h2>
-  );
-}
-
-export default function KnockoutStage({ predictions, onToggle, advancers, onAutofillR32 }) {
+export default function KnockoutStage({ predictions, onToggle, onClearRound, onAutofillR32, standings }) {
   const [openRound, setOpenRound] = useState(tournament.rounds[0].id);
 
   return (
@@ -115,8 +140,9 @@ export default function KnockoutStage({ predictions, onToggle, advancers, onAuto
             key={r.id}
             round={r}
             knockout={predictions}
-            advancers={advancers}
+            standings={standings}
             onToggle={onToggle}
+            onClear={onClearRound}
             onAutofillR32={onAutofillR32}
           />
         ))}
