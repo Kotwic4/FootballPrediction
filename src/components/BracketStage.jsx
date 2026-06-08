@@ -106,7 +106,9 @@ export default function BracketStage({ knockout, standings, onSetR32, onSetWinne
                 <div className="bracket-col-head">{col.label}</div>
                 <div className="bracket-col-body">
                   {col.matches.map((nr) => (
-                    <MatchCard key={nr} match={matches[nr]} onPick={onSetWinner} />
+                    <div key={nr} className="bk-slot">
+                      <MatchCard match={matches[nr]} onPick={onSetWinner} />
+                    </div>
                   ))}
                 </div>
               </div>

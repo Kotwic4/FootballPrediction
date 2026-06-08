@@ -69,10 +69,13 @@ const LATER = [
   ] },
 ];
 
-// Columns shown in the UI (reuse the round labels), mapping to match numbers.
+// Columns shown in the UI. Match order within each column follows the bracket
+// tree (depth-first), so every match sits vertically between the two matches
+// that feed it — otherwise the columns wouldn't line up, because the 2026
+// pairings are not sequential (e.g. R16 #89 is fed by R32 #74 and #77).
 export const BRACKET_COLUMNS = [
-  { roundId: 'r32', label: '1/16 finału', matches: R32.map((m) => m.nr) },
-  { roundId: 'r16', label: '1/8 finału', matches: [89, 90, 91, 92, 93, 94, 95, 96] },
+  { roundId: 'r32', label: '1/16 finału', matches: [74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87] },
+  { roundId: 'r16', label: '1/8 finału', matches: [89, 90, 93, 94, 91, 92, 95, 96] },
   { roundId: 'qf', label: 'Ćwierćfinał', matches: [97, 98, 99, 100] },
   { roundId: 'sf', label: 'Półfinał', matches: [101, 102] },
   { roundId: 'final', label: 'Finał', matches: [104] },

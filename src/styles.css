@@ -364,10 +364,20 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
-  gap: 8px;
+}
+/* Each match lives in an equal-height slot and is vertically centred in it.
+   A column with half as many slots centres each match across two slots of the
+   previous column, so feeders line up regardless of card height. */
+.bk-slot {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 0;
+  min-height: 52px;
 }
 .col-third .bracket-col-body { justify-content: center; }
+.col-third .bk-slot { flex: 0 0 auto; }
 .bk-match {
   background: var(--surface);
   border: 1px solid var(--border);
