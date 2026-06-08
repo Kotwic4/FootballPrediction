@@ -14,6 +14,7 @@ function MatchCard({ match, onPick }) {
     return (
       <button
         type="button"
+        title={team}
         className={'bk-team' + (isWinner ? ' winner' : '') + (winner && !isWinner ? ' lost' : '')}
         onClick={() => onPick(target, [a, b], team)}
       >
