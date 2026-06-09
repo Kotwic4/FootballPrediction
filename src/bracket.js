@@ -74,14 +74,50 @@ const LATER = [
 // tree (depth-first), so every match sits vertically between the two matches
 // that feed it — otherwise the columns wouldn't line up, because the 2026
 // pairings are not sequential (e.g. R16 #89 is fed by R32 #74 and #77).
+// The last column holds both the final and (below it) the 3rd-place match.
 export const BRACKET_COLUMNS = [
   { roundId: 'r32', label: '1/16 finału', matches: [74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87] },
   { roundId: 'r16', label: '1/8 finału', matches: [89, 90, 93, 94, 91, 92, 95, 96] },
   { roundId: 'qf', label: 'Ćwierćfinał', matches: [97, 98, 99, 100] },
   { roundId: 'sf', label: 'Półfinał', matches: [101, 102] },
-  { roundId: 'final', label: 'Finał', matches: [104] },
-  { roundId: 'third', label: 'Mecz o 3. miejsce', matches: [103] },
+  { roundId: 'final', label: 'Finał i 3. miejsce', matches: [104, 103] },
 ];
+
+// Official date and host city of every knockout match (FIFA schedule).
+export const MATCH_INFO = {
+  73: { day: 'niedz., 28.06', city: 'Los Angeles' },
+  74: { day: 'pon., 29.06', city: 'Boston' },
+  75: { day: 'pon., 29.06', city: 'Monterrey' },
+  76: { day: 'pon., 29.06', city: 'Houston' },
+  77: { day: 'wt., 30.06', city: 'Nowy Jork' },
+  78: { day: 'wt., 30.06', city: 'Dallas' },
+  79: { day: 'wt., 30.06', city: 'Meksyk' },
+  80: { day: 'śr., 1.07', city: 'Atlanta' },
+  81: { day: 'śr., 1.07', city: 'San Francisco' },
+  82: { day: 'śr., 1.07', city: 'Seattle' },
+  83: { day: 'czw., 2.07', city: 'Toronto' },
+  84: { day: 'czw., 2.07', city: 'Los Angeles' },
+  85: { day: 'czw., 2.07', city: 'Vancouver' },
+  86: { day: 'pt., 3.07', city: 'Miami' },
+  87: { day: 'pt., 3.07', city: 'Kansas City' },
+  88: { day: 'pt., 3.07', city: 'Dallas' },
+  89: { day: 'sob., 4.07', city: 'Filadelfia' },
+  90: { day: 'sob., 4.07', city: 'Houston' },
+  91: { day: 'niedz., 5.07', city: 'Nowy Jork' },
+  92: { day: 'niedz., 5.07', city: 'Meksyk' },
+  93: { day: 'pon., 6.07', city: 'Dallas' },
+  94: { day: 'pon., 6.07', city: 'Seattle' },
+  95: { day: 'wt., 7.07', city: 'Atlanta' },
+  96: { day: 'wt., 7.07', city: 'Vancouver' },
+  97: { day: 'czw., 9.07', city: 'Boston' },
+  98: { day: 'pt., 10.07', city: 'Los Angeles' },
+  99: { day: 'sob., 11.07', city: 'Miami' },
+  100: { day: 'sob., 11.07', city: 'Kansas City' },
+  101: { day: 'wt., 14.07', city: 'Dallas' },
+  102: { day: 'śr., 15.07', city: 'Atlanta' },
+  103: { day: 'sob., 18.07', city: 'Miami' },
+  104: { day: 'niedz., 19.07', city: 'Nowy Jork' },
+};
 
 // Third-placed team of each group (or null if standings incomplete).
 export function thirdPlaceTeams(standings) {

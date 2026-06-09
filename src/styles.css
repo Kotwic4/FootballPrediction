@@ -400,8 +400,16 @@ body {
   justify-content: center;
   padding: 4px 0;
 }
-.col-third .bracket-col-body { justify-content: center; }
-.col-third .bk-slot { flex: 0 0 auto; }
+/* Final column: the final and the 3rd-place match sit together, centred
+   vertically as a group instead of being spread over the whole column. */
+.col-final .bracket-col-body { justify-content: center; }
+.col-final .bk-slot { flex: 0 0 auto; }
+.col-final .bk-slot + .bk-slot { margin-top: 14px; }
+.bk-match-label {
+  font-size: 0.66rem;
+  color: var(--muted);
+  margin: 0 2px 3px;
+}
 .bk-match {
   background: var(--surface);
   border: 1px solid var(--border);

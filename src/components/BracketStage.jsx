@@ -1,15 +1,27 @@
 import { tournament } from '../data/tournament.js';
-import { BRACKET_COLUMNS, resolveBracket } from '../bracket.js';
+import { BRACKET_COLUMNS, MATCH_INFO, resolveBracket } from '../bracket.js';
 
 const POINTS = Object.fromEntries(tournament.rounds.map((r) => [r.id, r.points]));
 
+// Short round name shown in the per-match label, keyed by the set the
+// match WINNER advances to (match.target).
+const ROUND_SHORT = {
+  r16: '1/16',
+  qf: '1/8',
+  sf: 'Ćwierćfinał',
+  final: 'Półfinał',
+  champion: 'Finał',
+  third: 'Mecz o 3. miejsce',
+};
+
 function columnHeader(col) {
-  if (col.roundId === 'final') return `${col.label} · ${POINTS.final} pkt · mistrz ${POINTS.champion} pkt`;
+  if (col.roundId === 'final') return `${col.label} · ${POINTS.final}/${POINTS.third} pkt · mistrz ${POINTS.champion} pkt`;
   return `${col.label} · ${POINTS[col.roundId]} pkt`;
 }
 
 function MatchCard({ match, onPick }) {
-  const { a, b, winner, target } = match;
+  const { nr, a, b, winner, target } = match;
+  const info = MATCH_INFO[nr];
   const teamBtn = (team) => {
     if (!team) return <span className="bk-team tbd">—</span>;
     const isWinner = winner === team;
@@ -25,9 +37,14 @@ function MatchCard({ match, onPick }) {
     );
   };
   return (
-    <div className="bk-match">
-      {teamBtn(a)}
-      {teamBtn(b)}
+    <div>
+      <div className="bk-match-label">
+        {ROUND_SHORT[target]} · {info.day} · {info.city}
+      </div>
+      <div className="bk-match">
+        {teamBtn(a)}
+        {teamBtn(b)}
+      </div>
     </div>
   );
 }
