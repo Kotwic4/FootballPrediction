@@ -1,20 +1,21 @@
 import { tournament } from './data/tournament.js';
+import { THIRD_COMBINATIONS } from './data/thirdCombos.js';
 
 // Official 2026 World Cup knockout bracket (FIFA match numbers 73–104).
 // Source: 2026 FIFA World Cup knockout stage (Wikipedia / FIFA Annex C).
 
-// Each of the eight third-place slots may only be filled by a third-placed team
-// from one of the listed groups (FIFA's rule: thirds face winners, no same-group
-// rematches). The exact group→slot assignment is resolved by bipartite matching.
+// The eight third-place slots in the round of 32. The group→slot assignment
+// for each combination of advancing groups comes from THIRD_COMBINATIONS
+// (FIFA's official table), whose values follow this T1..T8 order.
 export const THIRD_SLOTS = [
-  { id: 'T1', match: 74, allowed: ['A', 'B', 'C', 'D', 'F'] },
-  { id: 'T2', match: 77, allowed: ['C', 'D', 'F', 'G', 'H'] },
-  { id: 'T3', match: 79, allowed: ['C', 'E', 'F', 'H', 'I'] },
-  { id: 'T4', match: 80, allowed: ['E', 'H', 'I', 'J', 'K'] },
-  { id: 'T5', match: 81, allowed: ['B', 'E', 'F', 'I', 'J'] },
-  { id: 'T6', match: 82, allowed: ['A', 'E', 'H', 'I', 'J'] },
-  { id: 'T7', match: 85, allowed: ['E', 'F', 'G', 'I', 'J'] },
-  { id: 'T8', match: 87, allowed: ['D', 'E', 'I', 'J', 'L'] },
+  { id: 'T1', match: 74 },
+  { id: 'T2', match: 77 },
+  { id: 'T3', match: 79 },
+  { id: 'T4', match: 80 },
+  { id: 'T5', match: 81 },
+  { id: 'T6', match: 82 },
+  { id: 'T7', match: 85 },
+  { id: 'T8', match: 87 },
 ];
 
 // Round of 32: home/away are slot specs — '1A' = winner A, '2B' = runner-up B,
@@ -90,28 +91,17 @@ export function thirdPlaceTeams(standings) {
   }));
 }
 
-// Assign the selected third-place groups to slots T1..T8 via bipartite matching
-// (Kuhn's algorithm). Returns { T1: 'A', ... } or null if no full assignment.
+// Assign the selected third-place groups to slots T1..T8 using FIFA's official
+// combinations table. Returns { T1: 'A', ... } or null if not exactly 8 groups.
 export function assignThirds(selectedGroups) {
-  const sel = new Set(selectedGroups);
+  const key = [...selectedGroups].sort().join('');
+  const assigned = THIRD_COMBINATIONS[key];
+  if (!assigned) return null;
   const slotGroup = {};
-  const groupSlot = {};
-
-  function augment(slot, visited) {
-    for (const g of slot.allowed) {
-      if (!sel.has(g) || visited.has(g)) continue;
-      visited.add(g);
-      if (groupSlot[g] === undefined || augment(THIRD_SLOTS[groupSlot[g]], visited)) {
-        slotGroup[slot.id] = g;
-        groupSlot[g] = THIRD_SLOTS.indexOf(slot);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  for (const slot of THIRD_SLOTS) augment(slot, new Set());
-  return Object.keys(slotGroup).length === selectedGroups.length ? slotGroup : null;
+  THIRD_SLOTS.forEach((slot, i) => {
+    slotGroup[slot.id] = assigned[i];
+  });
+  return slotGroup;
 }
 
 function pickWinner(a, b, set) {
