@@ -98,7 +98,7 @@ function BestThirdsSelect({ thirds, cutoffTied, selected, onSetThirds }) {
   );
 }
 
-export default function GroupStage({ predictions, onPick, standings, r32, onSetThirds, onGoToKnockout }) {
+export default function GroupStage({ predictions, onPick, standings, r32, onSetThirds, onReorderGroup, onGoToKnockout }) {
   const groupsComplete = tournament.groupOrder.every((g) => standings.byGroup[g].complete);
   const thirdsTeams = new Set(standings.thirds.map((t) => t.team));
   const selectedThirds = r32.filter((t) => thirdsTeams.has(t));
@@ -111,6 +111,7 @@ export default function GroupStage({ predictions, onPick, standings, r32, onSetT
         {' '}<strong>X</strong> = remis, <strong>2</strong> = wygrana drugiej drużyny
         (1 pkt za trafienie). Tabele liczą się na żywo. Z miejsc 1–2 jest
         {' '}<span className="chip-advance">awans</span>, z 3. miejsca gra się o awans.
+        Przy remisie punktowym (⚖︎) możesz ustawić kolejność strzałkami <strong>↑ ↓</strong> w tabeli.
       </p>
       {tournament.groupOrder.map((g) => {
         const matches = tournament.matches.filter((m) => m.group === g);
@@ -125,7 +126,14 @@ export default function GroupStage({ predictions, onPick, standings, r32, onSetT
                 {done}/{matches.length}
               </span>
             </summary>
-            <GroupTable {...standings.byGroup[g]} />
+            <GroupTable
+              {...standings.byGroup[g]}
+              onSwap={(idx) => {
+                const order = standings.byGroup[g].ranked.map((r) => r.team);
+                [order[idx], order[idx + 1]] = [order[idx + 1], order[idx]];
+                onReorderGroup(g, order);
+              }}
+            />
             <div className="matches">
               {matches.map((m) => (
                 <MatchRow key={m.nr} match={m} pick={predictions[m.nr]} onPick={onPick} />

@@ -5,7 +5,11 @@ function rowClass(position) {
   return 'standings-row out';
 }
 
-export function GroupTable({ ranked, complete, group }) {
+export function GroupTable({ ranked, complete, group, onSwap }) {
+  // Swap with the row below is offered only when both teams are level on
+  // points — manual order may never contradict the points ranking.
+  const canSwap = (idx) =>
+    onSwap && idx >= 0 && idx + 1 < ranked.length && ranked[idx].pts === ranked[idx + 1].pts;
   return (
     <table className="standings">
       <thead>
@@ -20,12 +24,32 @@ export function GroupTable({ ranked, complete, group }) {
         </tr>
       </thead>
       <tbody>
-        {ranked.map((r) => (
+        {ranked.map((r, idx) => (
           <tr key={r.team} className={rowClass(r.position)}>
             <td>{r.position}</td>
             <td className="ta-left">
               {r.team}
               {r.tied && <span className="tie-flag" title="Remis nierozstrzygnięty (brak bramek)"> ⚖︎</span>}
+              {canSwap(idx - 1) && (
+                <button
+                  type="button"
+                  className="swap-btn"
+                  title="Przesuń wyżej (remis punktowy)"
+                  onClick={() => onSwap(idx - 1)}
+                >
+                  ↑
+                </button>
+              )}
+              {canSwap(idx) && (
+                <button
+                  type="button"
+                  className="swap-btn"
+                  title="Przesuń niżej (remis punktowy)"
+                  onClick={() => onSwap(idx)}
+                >
+                  ↓
+                </button>
+              )}
             </td>
             <td>{r.played}</td>
             <td>{r.w}</td>

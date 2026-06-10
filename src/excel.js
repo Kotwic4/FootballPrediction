@@ -79,6 +79,17 @@ export function exportToXlsx(predictions) {
     rows.push(['', '', '', r[0], r[1], r[2]]);
   }
 
+  // Manual group orders (tie-break choices). Placed after the legend so older
+  // app versions and the family template simply ignore these rows.
+  const tiebreaks = predictions.tiebreaks ?? {};
+  const tbGroups = tournament.groupOrder.filter((g) => tiebreaks[g]);
+  if (tbGroups.length) {
+    rows.push([]);
+    for (const g of tbGroups) {
+      rows.push(['', '', '', `${TIEBREAK_LABEL} ${g}`, tiebreaks[g].join('; ')]);
+    }
+  }
+
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [
     { wch: 9 }, { wch: 12 }, { wch: 7 }, { wch: 26 },
@@ -120,6 +131,7 @@ export function downloadXlsx(predictions, filename = 'typy-ms-2026.xlsx') {
 
 const VALID_GROUP_PICK = { '1': '1', 'X': 'X', '2': '2' };
 const validTeams = new Set(tournament.teams);
+const TIEBREAK_LABEL = 'KOLEJNOŚĆ GRUPA';
 
 /**
  * Parse a (possibly partly filled) .xlsx ArrayBuffer back into predictions.
@@ -133,6 +145,7 @@ export async function importFromXlsx(arrayBuffer) {
 
   const groups = {};
   const knockout = {};
+  const tiebreaks = {};
   const warnings = [];
   const matchNrs = new Set(tournament.matches.map((m) => m.nr));
 
@@ -141,6 +154,15 @@ export async function importFromXlsx(arrayBuffer) {
     const colA = row[0];
     const colD = (row[3] ?? '').toString().trim();
     const colE = row[4];
+
+    // Manual group order rows live after the points legend.
+    if (colD.startsWith(TIEBREAK_LABEL)) {
+      const g = colD.slice(TIEBREAK_LABEL.length).trim();
+      const order = (colE ?? '').toString().split(';').map((t) => t.trim()).filter(Boolean);
+      if (tournament.groups[g] && order.every((t) => validTeams.has(t))) tiebreaks[g] = order;
+      else warnings.push(`${colD}: nieprawidłowa kolejność drużyn`);
+      continue;
+    }
 
     if (colD === 'Punktacja') inLegend = true;
     if (inLegend) continue;
@@ -165,5 +187,5 @@ export async function importFromXlsx(arrayBuffer) {
     }
   }
 
-  return { predictions: { groups, knockout }, warnings };
+  return { predictions: { groups, knockout, tiebreaks }, warnings };
 }

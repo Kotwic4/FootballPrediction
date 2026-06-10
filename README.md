@@ -15,6 +15,8 @@ zgodnym z arkuszem rodzinnym.
 
   > Uwaga: typy to tylko `1/X/2`, więc bez bramek niektórych remisów w tabeli
   > nie da się rozstrzygnąć — takie pozycje są oznaczone symbolem ⚖︎.
+  > Kolejność drużyn z równą liczbą punktów możesz ustawić sam strzałkami
+  > **↑ ↓** przy nazwie drużyny (punkty zawsze decydują w pierwszej kolejności).
 
 - **Faza pucharowa** — dla każdej rundy zaznaczasz drużyny, które do niej
   awansują. Wybór 1/16 jest dowolny (drużyny awansujące wg Twoich tabel mają

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { tournament } from './data/tournament.js';
-import { buildStandings } from './standings.js';
+import { buildStandings, sanitizeTiebreaks } from './standings.js';
 import { normalizeKnockout } from './knockout.js';
 import { fixedR32Teams } from './bracket.js';
 import GroupStage from './components/GroupStage.jsx';
@@ -15,12 +15,16 @@ function loadInitial() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { groups: parsed.groups ?? {}, knockout: parsed.knockout ?? {} };
+      return {
+        groups: parsed.groups ?? {},
+        knockout: parsed.knockout ?? {},
+        tiebreaks: sanitizeTiebreaks(parsed.tiebreaks),
+      };
     }
   } catch {
     // ignore corrupt storage
   }
-  return { groups: {}, knockout: {} };
+  return { groups: {}, knockout: {}, tiebreaks: {} };
 }
 
 // Build a safe, readable file-name fragment from the player's name.
@@ -45,7 +49,10 @@ export default function App() {
     localStorage.setItem(NAME_KEY, name);
   }, [name]);
 
-  const standings = useMemo(() => buildStandings(predictions.groups), [predictions.groups]);
+  const standings = useMemo(
+    () => buildStandings(predictions.groups, predictions.tiebreaks),
+    [predictions.groups, predictions.tiebreaks],
+  );
 
   const setGroupPick = (nr, pick) => {
     setPredictions((prev) => {
@@ -54,6 +61,15 @@ export default function App() {
       else groups[nr] = pick;
       return { ...prev, groups };
     });
+  };
+
+  // Manual order of a whole group, used to settle point ties (points still
+  // rank first — the stored order only decides among level teams).
+  const setGroupOrder = (group, order) => {
+    setPredictions((prev) => ({
+      ...prev,
+      tiebreaks: { ...prev.tiebreaks, [group]: order },
+    }));
   };
 
   // Best thirds confirmed in the group stage. The round of 32 is the 24 fixed
@@ -104,6 +120,7 @@ export default function App() {
       setPredictions({
         groups: imported.groups,
         knockout: normalizeKnockout(imported.knockout),
+        tiebreaks: sanitizeTiebreaks(imported.tiebreaks),
       });
       if (warnings.length) {
         alert(
@@ -120,7 +137,7 @@ export default function App() {
 
   const handleReset = () => {
     if (confirm('Na pewno wyczyścić wszystkie typy? Tej operacji nie można cofnąć.')) {
-      setPredictions({ groups: {}, knockout: {} });
+      setPredictions({ groups: {}, knockout: {}, tiebreaks: {} });
     }
   };
 
@@ -184,6 +201,7 @@ export default function App() {
             standings={standings}
             r32={predictions.knockout.r32 ?? []}
             onSetThirds={setThirds}
+            onReorderGroup={setGroupOrder}
             onGoToKnockout={() => setTab('knockout')}
           />
         )}

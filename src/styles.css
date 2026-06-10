@@ -195,6 +195,18 @@ body {
 .standings-row.third td:first-child { box-shadow: inset 3px 0 0 var(--accent-2); }
 .standings-row.out { color: var(--muted); }
 .standings-note { color: var(--muted); font-style: italic; text-align: left !important; font-size: 0.8rem; }
+.swap-btn {
+  margin-left: 6px;
+  padding: 0 7px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  background: var(--surface-2, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+}
+.swap-btn:hover { border-color: var(--accent-2); color: var(--accent-2); }
 .tie-flag { color: #fbbf24; cursor: help; }
 
 .chip-advance {

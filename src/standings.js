@@ -26,10 +26,14 @@ function headToHeadPoints(cluster, matches, picks) {
   return hp;
 }
 
-// Rank a group: by points, then head-to-head among tied teams. Anything still
-// level afterwards is flagged `tied` (can't be resolved without goals).
-function rankGroup(teams, stat, matches, picks) {
+// Rank a group: by points, then — if the user reordered the group by hand —
+// their preferred order (`pref`, a full permutation of the group's teams),
+// otherwise head-to-head among tied teams. Anything still level afterwards is
+// flagged `tied` (can't be resolved without goals); a manual order resolves
+// every tie, so nothing is flagged then.
+function rankGroup(teams, stat, matches, picks, pref) {
   const seedIndex = Object.fromEntries(teams.map((t, i) => [t, i]));
+  const prefIndex = pref ? Object.fromEntries(pref.map((t, i) => [t, i])) : null;
   const order = [...teams].sort((a, b) => stat[b].pts - stat[a].pts || seedIndex[a] - seedIndex[b]);
   const result = [];
   let i = 0;
@@ -39,6 +43,9 @@ function rankGroup(teams, stat, matches, picks) {
     const cluster = order.slice(i, j + 1);
     if (cluster.length === 1) {
       result.push({ ...stat[cluster[0]], tied: false });
+    } else if (prefIndex) {
+      cluster.sort((a, b) => prefIndex[a] - prefIndex[b]);
+      for (const t of cluster) result.push({ ...stat[t], tied: false });
     } else {
       const hp = headToHeadPoints(cluster, matches, picks);
       cluster.sort((a, b) => hp[b] - hp[a] || seedIndex[a] - seedIndex[b]);
@@ -56,7 +63,7 @@ function rankGroup(teams, stat, matches, picks) {
   return result;
 }
 
-export function computeGroupStandings(group, groupPicks) {
+export function computeGroupStandings(group, groupPicks, pref) {
   const teams = tournament.groups[group];
   const matches = tournament.matches.filter((m) => m.group === group);
   const stat = {};
@@ -67,7 +74,23 @@ export function computeGroupStandings(group, groupPicks) {
     if (!p) { complete = false; continue; }
     applyPick(stat, m, p);
   }
-  return { ranked: rankGroup(teams, stat, matches, groupPicks), complete };
+  return { ranked: rankGroup(teams, stat, matches, groupPicks, pref), complete };
+}
+
+// Keep only well-formed manual orders: a full permutation of the group's teams.
+// Anything else (corrupt storage, hand-edited Excel) is silently dropped.
+export function sanitizeTiebreaks(tiebreaks) {
+  const out = {};
+  if (!tiebreaks || typeof tiebreaks !== 'object') return out;
+  for (const g of tournament.groupOrder) {
+    const order = tiebreaks[g];
+    if (!Array.isArray(order)) continue;
+    const teams = tournament.groups[g];
+    if (order.length === teams.length && teams.every((t) => order.includes(t))) {
+      out[g] = order;
+    }
+  }
+  return out;
 }
 
 // Cross-group ranking of the 12 third-placed teams; the best 8 advance.
@@ -91,9 +114,10 @@ function computeBestThirds(byGroup) {
 
 // One pass over all group picks: per-group tables, best-thirds race, and the
 // set of 32 teams the predictions imply will reach the round of 32.
-export function buildStandings(groupPicks) {
+// `tiebreaks` maps group → manual team order used to settle point ties.
+export function buildStandings(groupPicks, tiebreaks = {}) {
   const byGroup = {};
-  for (const g of tournament.groupOrder) byGroup[g] = computeGroupStandings(g, groupPicks);
+  for (const g of tournament.groupOrder) byGroup[g] = computeGroupStandings(g, groupPicks, tiebreaks[g]);
   const { thirds, cutoffTied } = computeBestThirds(byGroup);
 
   const advancers = new Set();
