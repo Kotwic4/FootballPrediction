@@ -32,8 +32,9 @@ function MatchRow({ match, pick, onPick }) {
 }
 
 // Interactive best-thirds selection: confirm which 8 of the 12 third-placed
-// teams advance to the knockout stage.
-function BestThirdsSelect({ thirds, cutoffTied, selected, onSetThirds }) {
+// teams advance to the knockout stage. Also reused by the leaderboard to
+// confirm the real qualifiers.
+export function BestThirdsSelect({ thirds, cutoffTied, selected, onSetThirds }) {
   const selSet = new Set(selected);
   const toggle = (team) => {
     if (selSet.has(team)) onSetThirds(selected.filter((t) => t !== team));

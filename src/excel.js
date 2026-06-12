@@ -13,7 +13,7 @@ const ROUND_LABEL = {
   champion: 'MISTRZ',
 };
 
-const LABEL_TO_ROUND = Object.fromEntries(
+export const LABEL_TO_ROUND = Object.fromEntries(
   Object.entries(ROUND_LABEL).map(([id, label]) => [label, id]),
 );
 

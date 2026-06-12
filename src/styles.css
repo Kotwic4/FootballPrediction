@@ -131,6 +131,8 @@ body {
   border-bottom: 3px solid transparent;
 }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.tab.tab-link { margin-left: auto; }
+.tab.tab-link:hover { color: var(--text); }
 
 .legend {
   background: var(--surface);
@@ -448,6 +450,95 @@ body {
 .bk-team.lost { opacity: 0.45; text-decoration: line-through; }
 .bk-team.tbd { color: var(--muted); cursor: default; }
 .col-final .bk-team.winner { background: rgba(250, 204, 21, 0.25); }
+
+/* Leaderboard (Ranking) */
+.lb-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.lb-updated { color: var(--muted); font-size: 0.82rem; }
+.lb-heading { margin: 28px 0 10px; font-size: 1.2rem; }
+.lb-warnings ul { margin: 8px 0 4px; padding-left: 20px; max-height: 220px; overflow-y: auto; }
+.lb-warnings summary { cursor: pointer; font-weight: 600; }
+
+.lb-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; }
+.lb-table { border-collapse: collapse; font-size: 0.82rem; width: 100%; background: var(--surface); }
+.lb-table th, .lb-table td { padding: 4px 8px; text-align: center; border-top: 1px solid var(--border); }
+.lb-table thead th {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 600;
+  vertical-align: bottom;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.lb-table thead .sticky-col { z-index: 4; }
+/* Ranking page: the app header scrolls away so the chrono table header can
+   stick to the top of the viewport instead. */
+.app-ranking .app-header { position: static; box-shadow: none; }
+
+/* Ranking page: the bracket grows to its full height — only the page scrolls
+   (no inner vertical scrollbar). Horizontal scroll remains for narrow screens. */
+.app-ranking .bracket-scroll { max-height: none; }
+
+/* Chronological view: scrolls with the page; the header row (player names)
+   sticks to the viewport top. */
+.lb-chrono { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; }
+.lb-chrono .lb-table { background: var(--surface); }
+.lb-day-row td {
+  background: var(--surface-2);
+  color: var(--accent-2);
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 6px 8px;
+}
+/* Keeps the day label in view while the wide table is scrolled horizontally. */
+.lb-day-label { position: sticky; left: 8px; display: inline-block; }
+.lb-meta { color: var(--muted); font-size: 0.78rem; }
+.lb-table th.player-name { padding: 8px 3px; }
+.lb-table th.player-name span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  max-height: 130px;
+  font-size: 0.76rem;
+}
+.lb-table .sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 2;
+  text-align: left;
+}
+.lb-table thead .sticky-col { background: var(--surface-2); }
+.lb-match { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lb-pick { display: inline-block; min-width: 18px; color: var(--muted); }
+.lb-pick.hit { color: var(--accent); font-weight: 700; }
+.lb-pick.miss { opacity: 0.35; text-decoration: line-through; }
+
+.lb-result-group { display: inline-flex; gap: 2px; }
+.pick-btn.pick-sm { width: 26px; height: 26px; font-size: 0.78rem; border-radius: 6px; }
+
+.lb-entry { padding: 4px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+.lb-entry .round-hint { margin: 0 0 10px; }
+
+/* Transposed knockout picks: players in columns, one pick per row. */
+.lb-ko-team {
+  display: inline-block;
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.lb-ko-team.hit { color: var(--accent); font-weight: 600; }
+.lb-ko-team.miss { opacity: 0.35; text-decoration: line-through; }
+.lb-pts-row td { font-weight: 700; background: var(--surface-2); }
+
+.lb-subheading { margin: 18px 0 10px; font-size: 1.05rem; }
+.lb-group-grid { margin-bottom: 12px; }
+.lb-group-grid .standings { margin: 0; }
 
 @media (max-width: 640px) {
   .name-input { width: 100%; }

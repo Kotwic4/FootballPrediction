@@ -6,6 +6,7 @@ import { fixedR32Teams } from './bracket.js';
 import GroupStage from './components/GroupStage.jsx';
 import BracketStage from './components/BracketStage.jsx';
 import ProgressPanel from './components/ProgressPanel.jsx';
+import Leaderboard from './components/Leaderboard.jsx';
 
 const STORAGE_KEY = 'ms2026-typy';
 const NAME_KEY = 'ms2026-imie';
@@ -35,11 +36,24 @@ function slugify(name) {
     .replace(/[^\p{L}\p{N}_-]/gu, '');
 }
 
+// Top-level view, driven by the URL hash so the ranking is a separate,
+// directly linkable page rather than a tab inside the typer.
+function viewFromHash() {
+  return window.location.hash === '#ranking' ? 'ranking' : 'typer';
+}
+
 export default function App() {
   const [predictions, setPredictions] = useState(loadInitial);
   const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) || '');
   const [tab, setTab] = useState('groups');
+  const [view, setView] = useState(viewFromHash);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const onHash = () => setView(viewFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(predictions));
@@ -141,6 +155,26 @@ export default function App() {
     }
   };
 
+  if (view === 'ranking') {
+    return (
+      <div className="app app-ranking">
+        <header className="app-header">
+          <div className="title-block">
+            <h1>🏆 Ranking — {tournament.tournamentName}</h1>
+          </div>
+          <div className="actions">
+            <button className="btn" onClick={() => { window.location.hash = ''; }}>
+              ← Wróć do typera
+            </button>
+          </div>
+        </header>
+        <main className="content">
+          <Leaderboard />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -190,6 +224,12 @@ export default function App() {
           onClick={() => setTab('knockout')}
         >
           Faza pucharowa
+        </button>
+        <button
+          className="tab tab-link"
+          onClick={() => { window.location.hash = 'ranking'; }}
+        >
+          🏆 Ranking
         </button>
       </nav>
 
