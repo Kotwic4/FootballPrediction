@@ -36,10 +36,10 @@ function slugify(name) {
     .replace(/[^\p{L}\p{N}_-]/gu, '');
 }
 
-// Top-level view, driven by the URL hash so the ranking is a separate,
-// directly linkable page rather than a tab inside the typer.
+// Top-level view, driven by the URL hash. The ranking is the home page; the
+// old prediction typer is hidden for now, reachable only via #typer.
 function viewFromHash() {
-  return window.location.hash === '#ranking' ? 'ranking' : 'typer';
+  return window.location.hash === '#typer' ? 'typer' : 'ranking';
 }
 
 export default function App() {
@@ -162,11 +162,6 @@ export default function App() {
           <div className="title-block">
             <h1>🏆 Ranking — {tournament.tournamentName}</h1>
           </div>
-          <div className="actions">
-            <button className="btn" onClick={() => { window.location.hash = ''; }}>
-              ← Wróć do typera
-            </button>
-          </div>
         </header>
         <main className="content">
           <Leaderboard />
@@ -227,7 +222,11 @@ export default function App() {
         </button>
         <button
           className="tab tab-link"
-          onClick={() => { window.location.hash = 'ranking'; }}
+          onClick={() => {
+            // Clear the #typer hash so we land on the ranking home page.
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+            window.dispatchEvent(new HashChangeEvent('hashchange'));
+          }}
         >
           🏆 Ranking
         </button>

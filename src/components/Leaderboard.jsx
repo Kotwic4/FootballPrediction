@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { tournament } from '../data/tournament.js';
+import { players } from '../data/players.js';
 import { buildStandings, sanitizeTiebreaks } from '../standings.js';
 import { normalizeKnockout } from '../knockout.js';
 import { fixedR32Teams } from '../bracket.js';
@@ -8,8 +9,8 @@ import { GroupTable } from './Standings.jsx';
 import { BestThirdsSelect } from './GroupStage.jsx';
 import BracketStage from './BracketStage.jsx';
 
-const DATA_KEY = 'ms2026-zbiorcza';
 const RESULTS_KEY = 'ms2026-wyniki';
+const LEGACY_DATA_KEY = 'ms2026-zbiorcza';
 
 const RANK_MEDALS = ['🥇', '🥈', '🥉'];
 const RESULT_OPTIONS = ['1', 'X', '2'];
@@ -285,7 +286,6 @@ function RoundPicks({ round, players, results }) {
 }
 
 export default function Leaderboard() {
-  const [data, setData] = useState(() => loadJson(DATA_KEY));
   const [matchView, setMatchView] = useState('chrono');
   const [results, setResults] = useState(() => {
     const r = loadJson(RESULTS_KEY);
@@ -295,18 +295,17 @@ export default function Leaderboard() {
       tiebreaks: sanitizeTiebreaks(r?.tiebreaks),
     };
   });
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem(RESULTS_KEY, JSON.stringify(results));
   }, [results]);
 
+  // Predictions are now bundled at build time (src/data/players.js); drop any
+  // leftover uploaded copy so an old in-browser file can't shadow the build.
   useEffect(() => {
-    if (data) localStorage.setItem(DATA_KEY, JSON.stringify(data));
-    else localStorage.removeItem(DATA_KEY);
-  }, [data]);
+    localStorage.removeItem(LEGACY_DATA_KEY);
+  }, []);
 
-  const players = data?.players ?? [];
   const standings = useMemo(
     () => buildStandings(results.groups, results.tiebreaks),
     [results.groups, results.tiebreaks],
@@ -315,21 +314,6 @@ export default function Leaderboard() {
     () => players.map((p) => ({ player: p, ...scorePlayer(p, results) })),
     [players, results],
   );
-
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    try {
-      const { parseAggregateXlsx } = await import('../leaderboardExcel.js');
-      const buf = await file.arrayBuffer();
-      const parsed = parseAggregateXlsx(buf);
-      setData({ ...parsed, uploadedAt: new Date().toISOString() });
-    } catch (err) {
-      alert('Nie udało się wczytać pliku. Upewnij się, że to zbiorczy plik .xlsx z typami wszystkich graczy.');
-      console.error(err);
-    }
-  };
 
   // The handlers below mirror App.jsx — the results object has the same shape
   // as a player's predictions, so the typer's group/bracket views drive it.
@@ -380,48 +364,11 @@ export default function Leaderboard() {
   return (
     <div className="leaderboard">
       <div className="lb-toolbar">
-        <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()}>
-          📂 {data ? 'Wczytaj nowy plik zbiorczy' : 'Wczytaj plik zbiorczy (.xlsx)'}
-        </button>
-        {data && (
-          <>
-            <button className="btn btn-ghost" onClick={handleClearResults}>🗑️ Wyczyść wyniki</button>
-            <span className="lb-updated">
-              {players.length} graczy
-              {data.uploadedAt && ` · wczytano ${new Date(data.uploadedAt).toLocaleString('pl-PL')}`}
-            </span>
-          </>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xlsx,.xls"
-          onChange={handleFile}
-          hidden
-        />
+        <span className="lb-updated">{players.length} graczy</span>
+        <button className="btn btn-ghost" onClick={handleClearResults}>🗑️ Wyczyść wyniki</button>
       </div>
 
-      {!data && (
-        <p className="legend">
-          Wczytaj zbiorczy plik Excel z typami wszystkich graczy (imiona w nagłówku,
-          każdy gracz w osobnej kolumnie). Typy zostaną automatycznie znormalizowane
-          (wielkość liter, literówki w nazwach drużyn), a poniżej będzie można wpisywać
-          wyniki meczów i śledzić ranking.
-        </p>
-      )}
-
-      {data && (
-        <>
-          {data.warnings?.length > 0 && (
-            <details className="lb-warnings warn">
-              <summary>⚠︎ Uwagi z wczytywania pliku ({data.warnings.length})</summary>
-              <ul>
-                {data.warnings.map((w, i) => <li key={i}>{w}</li>)}
-              </ul>
-            </details>
-          )}
-
-          <p className="legend">
+      <p className="legend">
             Punkty: mecz grupowy {tournament.groupMatchPoints} pkt,
             {' '}{tournament.rounds.map((r) => `${r.label.toLowerCase()} ${r.points} pkt`).join(', ')}.
             Punkty za fazę pucharową naliczają się za każdą trafioną drużynę w danej fazie.
@@ -495,8 +442,6 @@ export default function Leaderboard() {
           {tournament.rounds.map((r) => (
             <RoundPicks key={r.id} round={r} players={players} results={results} />
           ))}
-        </>
-      )}
     </div>
   );
 }
