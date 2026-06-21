@@ -311,6 +311,85 @@ function RoundPicks({ round, players, results, ranks, showRanks }) {
   );
 }
 
+// Summary of the group stage: how many matches are played, the 1/X/2 outcome
+// distribution, and how the players are doing against those results.
+function GroupStats({ results, scores }) {
+  const total = tournament.matches.length;
+  const dist = { 1: 0, X: 0, 2: 0 };
+  for (const m of tournament.matches) {
+    const r = results.groups[m.nr];
+    if (r) dist[r] += 1;
+  }
+  const played = dist[1] + dist.X + dist[2];
+  const pct = (n) => (played ? Math.round((n / played) * 100) : 0);
+  const acc = (hits) => (played ? Math.round((hits / played) * 100) : 0);
+
+  const ranked = [...scores].sort(
+    (a, b) => b.groupsCorrect - a.groupsCorrect || a.player.name.localeCompare(b.player.name, 'pl'),
+  );
+  const leader = ranked[0];
+  const hits = scores.map((s) => s.groupsCorrect);
+  const avgAcc = scores.length ? acc(hits.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
+  const segs = [
+    { key: '1', cls: 'seg-1', label: 'Gospodarze (1)', n: dist[1] },
+    { key: 'X', cls: 'seg-x', label: 'Remisy (X)', n: dist.X },
+    { key: '2', cls: 'seg-2', label: 'Goście (2)', n: dist[2] },
+  ];
+
+  return (
+    <section className="lb-stats">
+      <div className="stat-cards">
+        <div className="stat-card">
+          <span className="stat-value">{played}/{total}</span>
+          <span className="stat-label">Rozegrane mecze</span>
+        </div>
+        {segs.map((s) => (
+          <div key={s.key} className="stat-card">
+            <span className="stat-value">{s.n} · {pct(s.n)}%</span>
+            <span className="stat-label">{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {played > 0 && (
+        <div className="stat-bar" title="Rozkład wyników 1 / X / 2">
+          {segs.map((s) =>
+            s.n ? (
+              <span key={s.key} className={'seg ' + s.cls} style={{ width: pct(s.n) + '%' }}>
+                {pct(s.n) >= 10 ? `${s.key} ${pct(s.n)}%` : ''}
+              </span>
+            ) : null,
+          )}
+        </div>
+      )}
+
+      {played > 0 && scores.length > 0 && (
+        <div className="stat-cards">
+          <div className="stat-card">
+            <span className="stat-value">{leader.player.name}</span>
+            <span className="stat-label">
+              Lider grup — {leader.groupsCorrect} pkt ({acc(leader.groupsCorrect)}%)
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value">{avgAcc}%</span>
+            <span className="stat-label">Średnia skuteczność ({scores.length} graczy)</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value">{acc(Math.max(...hits))}%</span>
+            <span className="stat-label">Najlepsza skuteczność</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value">{acc(Math.min(...hits))}%</span>
+            <span className="stat-label">Najsłabsza skuteczność</span>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Leaderboard() {
   const [matchView, setMatchView] = useState('chrono');
   const [results, setResults] = useState(() => {
@@ -452,6 +531,7 @@ export default function Leaderboard() {
             tabele liczą się na żywo; przy remisie punktowym (⚖︎) ustaw kolejność
             strzałkami <strong>↑ ↓</strong>.
           </p>
+          <GroupStats results={results} scores={scores} />
           <div className="round-tabs">
             <button
               type="button"
