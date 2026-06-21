@@ -614,18 +614,4 @@ body {
   .team-home { grid-area: home; }
   .pick-group { grid-area: pick; }
   .team-away { grid-area: away; }
-
-  /* Larger, tappable ranking pick tables so they're readable by scrolling
-     sideways instead of pinch-zooming. Pinch-zoom breaks the sticky header on
-     Android (it pins to the layout viewport, which scrolls off the zoomed
-     visual viewport); panning a scrollable table keeps the header pinned. */
-  .lb-table { font-size: 0.95rem; }
-  .lb-table th, .lb-table td { padding: 8px 8px; }
-  .lb-pick { min-width: 24px; font-size: 1rem; }
-  .pick-btn.pick-sm { width: 34px; height: 34px; font-size: 0.95rem; }
-  .lb-table th.player-name span:not(.player-rank) { font-size: 0.95rem; max-height: 160px; }
-  .player-rank { font-size: 0.9rem; }
-  .lb-ko-team { font-size: 0.9rem; max-width: 120px; }
-  .lb-meta { font-size: 0.9rem; }
-  .lb-match { max-width: 56vw; }
 }
