@@ -5,6 +5,7 @@ import { buildStandings, sanitizeTiebreaks } from '../standings.js';
 import { normalizeKnockout } from '../knockout.js';
 import { fixedR32Teams } from '../bracket.js';
 import { scorePlayer } from '../leaderboard.js';
+import { fetchWikiResults } from '../wikiResults.js';
 import { GroupTable } from './Standings.jsx';
 import { BestThirdsSelect } from './GroupStage.jsx';
 import BracketStage from './BracketStage.jsx';
@@ -14,6 +15,21 @@ const LEGACY_DATA_KEY = 'ms2026-zbiorcza';
 
 const RANK_MEDALS = ['🥇', '🥈', '🥉'];
 const RESULT_OPTIONS = ['1', 'X', '2'];
+
+// Shades every second player column so a single player is easy to follow down
+// the wide pick tables.
+const altCol = (i) => (i % 2 ? ' lb-col-alt' : '');
+
+// Build name → shared rank (1, 1, 3, …) from the current scores, matching the
+// ranking table's tie handling.
+function rankMap(scores) {
+  const sorted = [...scores].sort(
+    (a, b) => b.total - a.total || a.player.name.localeCompare(b.player.name, 'pl'),
+  );
+  const map = {};
+  for (const s of sorted) map[s.player.name] = 1 + sorted.findIndex((x) => x.total === s.total);
+  return map;
+}
 
 // Short column headers for the ranking table, in tournament.rounds order.
 const ROUND_SHORT = {
@@ -86,7 +102,7 @@ function dayLabel(date) {
 
 // One picks table over the given matches. In `chrono` mode extra time/group
 // columns appear and a separator row is inserted whenever the day changes.
-function MatchesTable({ matches, players, results, onSetResult, chrono = false }) {
+function MatchesTable({ matches, players, results, onSetResult, ranks, showRanks, chrono = false }) {
   const rows = [];
   let prevDate = null;
   for (const m of matches) {
@@ -123,11 +139,11 @@ function MatchesTable({ matches, players, results, onSetResult, chrono = false }
             ))}
           </div>
         </td>
-        {players.map((p) => {
+        {players.map((p, i) => {
           const pick = p.groups[m.nr];
           const cls = !res || !pick ? '' : pick === res ? ' hit' : ' miss';
           return (
-            <td key={p.name}>
+            <td key={p.name} className={altCol(i)}>
               <span className={'lb-pick' + cls}>{pick ?? '–'}</span>
             </td>
           );
@@ -147,8 +163,11 @@ function MatchesTable({ matches, players, results, onSetResult, chrono = false }
             {chrono && <th>Godz</th>}
             {chrono && <th>Gr</th>}
             <th>Wynik</th>
-            {players.map((p) => (
-              <th key={p.name} className="player-name"><span>{p.name}</span></th>
+            {players.map((p, i) => (
+              <th key={p.name} className={'player-name' + altCol(i)}>
+                {showRanks && <span className="player-rank">{ranks[p.name]}.</span>}
+                <span>{p.name}</span>
+              </th>
             ))}
           </tr>
         </thead>
@@ -160,7 +179,7 @@ function MatchesTable({ matches, players, results, onSetResult, chrono = false }
 
 // All 72 matches in kick-off order — the default view for entering results
 // day by day.
-function ChronoMatches({ players, results, onSetResult }) {
+function ChronoMatches({ players, results, onSetResult, ranks, showRanks }) {
   const matches = [...tournament.matches].sort(
     (a, b) => (a.date + a.time).localeCompare(b.date + b.time) || a.nr - b.nr,
   );
@@ -170,6 +189,8 @@ function ChronoMatches({ players, results, onSetResult }) {
       players={players}
       results={results}
       onSetResult={onSetResult}
+      ranks={ranks}
+      showRanks={showRanks}
       chrono
     />
   );
@@ -196,7 +217,7 @@ function GroupTablesGrid({ standings, onReorderGroup }) {
   );
 }
 
-function GroupMatches({ players, results, standings, onSetResult, onReorderGroup }) {
+function GroupMatches({ players, results, standings, onSetResult, onReorderGroup, ranks, showRanks }) {
   return tournament.groupOrder.map((g) => {
     const matches = tournament.matches.filter((m) => m.group === g);
     const done = matches.filter((m) => results.groups[m.nr]).length;
@@ -222,6 +243,8 @@ function GroupMatches({ players, results, standings, onSetResult, onReorderGroup
           players={players}
           results={results}
           onSetResult={onSetResult}
+          ranks={ranks}
+          showRanks={showRanks}
         />
       </details>
     );
@@ -232,7 +255,7 @@ function GroupMatches({ players, results, standings, onSetResult, onReorderGroup
 // the actual qualifiers entered via the bracket. Players are columns; row i
 // holds everyone's i-th pick (for 1/16 the rows follow the template slots),
 // with a per-player points row at the bottom.
-function RoundPicks({ round, players, results }) {
+function RoundPicks({ round, players, results, ranks, showRanks }) {
   const actualList = results.knockout[round.id] ?? [];
   const actual = new Set(actualList);
   const complete = actualList.length === round.count;
@@ -251,8 +274,11 @@ function RoundPicks({ round, players, results }) {
           <thead>
             <tr>
               <th></th>
-              {players.map((p) => (
-                <th key={p.name} className="player-name"><span>{p.name}</span></th>
+              {players.map((p, i) => (
+                <th key={p.name} className={'player-name' + altCol(i)}>
+                  {showRanks && <span className="player-rank">{ranks[p.name]}.</span>}
+                  <span>{p.name}</span>
+                </th>
               ))}
             </tr>
           </thead>
@@ -260,11 +286,11 @@ function RoundPicks({ round, players, results }) {
             {Array.from({ length: round.count }, (_, i) => (
               <tr key={i}>
                 <td className="lb-meta">{round.count > 1 ? i + 1 : ''}</td>
-                {players.map((p) => {
+                {players.map((p, pi) => {
                   const team = (p.knockout[round.id] ?? [])[i];
                   const cls = !team ? '' : actual.has(team) ? ' hit' : complete ? ' miss' : '';
                   return (
-                    <td key={p.name}>
+                    <td key={p.name} className={altCol(pi)}>
                       <span className={'lb-ko-team' + cls} title={team}>{team ?? '–'}</span>
                     </td>
                   );
@@ -273,9 +299,9 @@ function RoundPicks({ round, players, results }) {
             ))}
             <tr className="lb-pts-row">
               <td>Pkt</td>
-              {players.map((p) => {
+              {players.map((p, pi) => {
                 const hits = (p.knockout[round.id] ?? []).filter((t) => actual.has(t)).length;
-                return <td key={p.name}>{hits * round.points}</td>;
+                return <td key={p.name} className={altCol(pi)}>{hits * round.points}</td>;
               })}
             </tr>
           </tbody>
@@ -314,6 +340,12 @@ export default function Leaderboard() {
     () => players.map((p) => ({ player: p, ...scorePlayer(p, results) })),
     [players, results],
   );
+  const ranks = useMemo(() => rankMap(scores), [scores]);
+  // Don't clutter the headers with "1." for everyone before any result exists.
+  const showRanks = scores.some((s) => s.total > 0);
+
+  const [downloading, setDownloading] = useState(false);
+  const [downloadMsg, setDownloadMsg] = useState(null);
 
   // The handlers below mirror App.jsx — the results object has the same shape
   // as a player's predictions, so the typer's group/bracket views drive it.
@@ -358,6 +390,35 @@ export default function Leaderboard() {
     }
   };
 
+  // Pull current group-stage results (1/X/2) from Wikipedia and merge them in,
+  // overwriting any manually entered group results with the official outcome.
+  const handleDownloadResults = async () => {
+    setDownloading(true);
+    setDownloadMsg(null);
+    try {
+      const { groups, count, scored, unresolved, source } = await fetchWikiResults();
+      setResults((prev) => ({ ...prev, groups: { ...prev.groups, ...groups } }));
+      let msg;
+      if (count) {
+        msg = { kind: 'ok', text: `Pobrano ${count} wyników (źródło: ${source}).` };
+      } else if (scored === 0) {
+        msg = { kind: 'warn', text: 'Żaden mecz nie został jeszcze rozegrany na Wikipedii.' };
+      } else if (unresolved) {
+        msg = { kind: 'warn', text: `Znaleziono ${scored} wyników, ale nie udało się dopasować drużyn.` };
+      } else {
+        msg = { kind: 'warn', text: 'Nie znaleziono rozegranych meczów grupowych.' };
+      }
+      setDownloadMsg(msg);
+    } catch (err) {
+      setDownloadMsg({
+        kind: 'warn',
+        text: `Nie udało się pobrać wyników (${err.message}).`,
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const thirdsTeams = new Set(standings.thirds.map((t) => t.team));
   const selectedThirds = (results.knockout.r32 ?? []).filter((t) => thirdsTeams.has(t));
 
@@ -365,7 +426,15 @@ export default function Leaderboard() {
     <div className="leaderboard">
       <div className="lb-toolbar">
         <span className="lb-updated">{players.length} graczy</span>
+        <button className="btn btn-ghost" onClick={handleDownloadResults} disabled={downloading}>
+          {downloading ? '⏳ Pobieranie…' : '🌐 Pobierz wyniki z internetu'}
+        </button>
         <button className="btn btn-ghost" onClick={handleClearResults}>🗑️ Wyczyść wyniki</button>
+        {downloadMsg && (
+          <span className={downloadMsg.kind === 'ok' ? 'lb-download-msg ok' : 'lb-download-msg warn'}>
+            {downloadMsg.text}
+          </span>
+        )}
       </div>
 
       <p className="legend">
@@ -401,7 +470,13 @@ export default function Leaderboard() {
           </div>
           {matchView === 'chrono' ? (
             <>
-              <ChronoMatches players={players} results={results} onSetResult={setGroupResult} />
+              <ChronoMatches
+                players={players}
+                results={results}
+                onSetResult={setGroupResult}
+                ranks={ranks}
+                showRanks={showRanks}
+              />
               <h3 className="lb-subheading">Tabele grup</h3>
               <GroupTablesGrid standings={standings} onReorderGroup={setGroupOrder} />
             </>
@@ -412,6 +487,8 @@ export default function Leaderboard() {
               standings={standings}
               onSetResult={setGroupResult}
               onReorderGroup={setGroupOrder}
+              ranks={ranks}
+              showRanks={showRanks}
             />
           )}
 
@@ -440,7 +517,14 @@ export default function Leaderboard() {
             wygaszone dopiero, gdy dana faza jest kompletna.
           </p>
           {tournament.rounds.map((r) => (
-            <RoundPicks key={r.id} round={r} players={players} results={results} />
+            <RoundPicks
+              key={r.id}
+              round={r}
+              players={players}
+              results={results}
+              ranks={ranks}
+              showRanks={showRanks}
+            />
           ))}
     </div>
   );

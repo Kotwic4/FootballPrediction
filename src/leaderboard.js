@@ -1,9 +1,12 @@
 import { tournament } from './data/tournament.js';
 
-// Team-name aliases seen in the aggregate spreadsheet. Keys are lowercase.
-// "RPA" is the family's everyday name, not a typo — keep it permanently.
+// Team-name aliases. Keys are lowercase. "RPA" is the family's everyday name,
+// not a typo — keep it permanently. The remaining two bridge the Polish
+// Wikipedia spellings (used by the "download results" feature) onto ours.
 const TEAM_ALIASES = {
   rpa: 'Republika Południowej Afryki',
+  'południowa afryka': 'Republika Południowej Afryki',
+  'demokratyczna republika konga': 'DR Konga',
 };
 
 const byLower = new Map(tournament.teams.map((t) => [t.toLowerCase(), t]));
