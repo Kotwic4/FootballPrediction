@@ -135,23 +135,58 @@ function toResults(raw, resolve) {
 
 const resolveEn = (name) => normalizeTeam(EN_TO_PL[name.trim().toLowerCase()] ?? name);
 
+// Read the official group order from the standings tables. Our 1/X/2 data can't
+// compute goal difference, so Wikipedia's order is the only way to settle point
+// ties correctly. A standings table is a wikitable whose team rows resolve to
+// exactly one group's four teams; we keep their row order as the tiebreak order.
+function readStandings(doc, resolve) {
+  const byGroup = tournament.groupOrder.map((g) => ({ g, set: new Set(tournament.groups[g]) }));
+  const tiebreaks = {};
+  for (const table of doc.querySelectorAll('table.wikitable')) {
+    const order = [];
+    for (const tr of table.querySelectorAll('tr')) {
+      let team = null;
+      for (const a of tr.querySelectorAll('a')) {
+        const t = resolve(a.textContent.trim());
+        if (t) {
+          team = t;
+          break;
+        }
+      }
+      if (team && !order.includes(team)) order.push(team);
+    }
+    if (order.length !== 4) continue;
+    const hit = byGroup.find(({ set }) => order.every((t) => set.has(t)));
+    if (hit && !tiebreaks[hit.g]) tiebreaks[hit.g] = order;
+  }
+  return tiebreaks;
+}
+
 const SOURCES = [
-  { name: 'pl-wiki', run: async () => toResults(readPolish(await fetchDoc('pl.wikipedia.org', 'Mistrzostwa Świata w Piłce Nożnej 2026')), normalizeTeam) },
-  { name: 'en-wiki', run: async () => toResults(readEnglish(await fetchDoc('en.wikipedia.org', '2026 FIFA World Cup')), resolveEn) },
+  { name: 'pl-wiki', host: 'pl.wikipedia.org', page: 'Mistrzostwa Świata w Piłce Nożnej 2026', read: readPolish, resolve: normalizeTeam },
+  { name: 'en-wiki', host: 'en.wikipedia.org', page: '2026 FIFA World Cup', read: readEnglish, resolve: resolveEn },
 ];
+
+async function runSource(src) {
+  const doc = await fetchDoc(src.host, src.page);
+  return {
+    ...toResults(src.read(doc), src.resolve),
+    tiebreaks: readStandings(doc, src.resolve),
+  };
+}
 
 /**
  * Fetch current group-stage results, trying each source until one returns data.
- * Returns { groups, count, scored, unresolved, source } (source = which site
- * supplied the data, or null when none had results). Throws only when every
- * source failed to load.
+ * Returns { groups, count, scored, unresolved, tiebreaks, source } (source =
+ * which site supplied the data, or null when none had results). Throws only when
+ * every source failed to load.
  */
 export async function fetchWikiResults() {
   const errors = [];
   let fallback = null;
   for (const src of SOURCES) {
     try {
-      const r = await src.run();
+      const r = await runSource(src);
       if (r.count > 0) return { ...r, source: src.name };
       fallback = fallback ?? { ...r, source: src.name };
     } catch (err) {
