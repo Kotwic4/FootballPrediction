@@ -20,10 +20,11 @@ function columnHeader(col) {
 }
 
 function MatchCard({ match, onPick }) {
-  const { nr, a, b, winner, target } = match;
+  const { nr, a, b, aLabel, bLabel, winner, target } = match;
   const info = MATCH_INFO[nr];
-  const teamBtn = (team) => {
-    if (!team) return <span className="bk-team tbd">—</span>;
+  const teamBtn = (team, label) => {
+    // No team yet — show the placeholder (e.g. "Zwycięzca grupy A"), not clickable.
+    if (!team) return <span className="bk-team tbd" title={label}>{label || '—'}</span>;
     const isWinner = winner === team;
     return (
       <button
@@ -42,19 +43,21 @@ function MatchCard({ match, onPick }) {
         {ROUND_SHORT[target]} · {info.day} · {info.city}
       </div>
       <div className="bk-match">
-        {teamBtn(a)}
-        {teamBtn(b)}
+        {teamBtn(a, aLabel)}
+        {teamBtn(b, bLabel)}
       </div>
     </div>
   );
 }
 
-export default function BracketStage({ knockout, standings, onSetWinner }) {
+export default function BracketStage({ knockout, standings, onSetWinner, progressive = false }) {
   const groupsComplete = tournament.groupOrder.every((g) => standings.byGroup[g].complete);
   const thirdsTeams = new Set(standings.thirds.map((t) => t.team));
   const selectedThirds = (knockout.r32 ?? []).filter((t) => thirdsTeams.has(t));
 
-  if (!groupsComplete) {
+  // The typer gates the bracket until groups + thirds are settled; the ranking
+  // page (progressive) always renders it, filling placeholders as results land.
+  if (!progressive && !groupsComplete) {
     return (
       <div className="bracket-stage">
         <p className="warn">
@@ -64,7 +67,7 @@ export default function BracketStage({ knockout, standings, onSetWinner }) {
       </div>
     );
   }
-  if (selectedThirds.length !== 8) {
+  if (!progressive && selectedThirds.length !== 8) {
     return (
       <div className="bracket-stage">
         <p className="warn">

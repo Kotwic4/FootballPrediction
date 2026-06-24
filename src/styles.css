@@ -448,7 +448,7 @@ body {
 .bk-team:hover:not(.tbd) { background: var(--surface-2); }
 .bk-team.winner { background: rgba(34, 197, 94, 0.22); font-weight: 700; }
 .bk-team.lost { opacity: 0.45; text-decoration: line-through; }
-.bk-team.tbd { color: var(--muted); cursor: default; }
+.bk-team.tbd { color: var(--muted); cursor: default; font-style: italic; font-size: 0.74rem; }
 .col-final .bk-team.winner { background: rgba(250, 204, 21, 0.25); }
 
 /* Leaderboard (Ranking) */

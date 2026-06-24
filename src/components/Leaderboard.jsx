@@ -3,11 +3,10 @@ import { tournament } from '../data/tournament.js';
 import { players } from '../data/players.js';
 import { buildStandings, sanitizeTiebreaks } from '../standings.js';
 import { normalizeKnockout } from '../knockout.js';
-import { fixedR32Teams } from '../bracket.js';
+import { fixedR32Teams, resolveBracket } from '../bracket.js';
 import { scorePlayer } from '../leaderboard.js';
 import { fetchWikiResults } from '../wikiResults.js';
 import { GroupTable } from './Standings.jsx';
-import { BestThirdsSelect } from './GroupStage.jsx';
 import BracketStage from './BracketStage.jsx';
 
 const RESULTS_KEY = 'ms2026-wyniki';
@@ -19,6 +18,26 @@ const RESULT_OPTIONS = ['1', 'X', '2'];
 // Shades every second player column so a single player is easy to follow down
 // the wide pick tables.
 const altCol = (i) => (i % 2 ? ' lb-col-alt' : '');
+
+// Teams that are out for good, given the results so far: 4th in a finished
+// group, third-placed teams that didn't make the best-8, and the losers of any
+// decided knockout match. Used to cross such teams out of everyone's picks in
+// every later round (not just the round where they were knocked out).
+function computeEliminated(standings, bracket) {
+  const out = new Set();
+  const groupsComplete = tournament.groupOrder.every((g) => standings.byGroup[g].complete);
+  for (const g of tournament.groupOrder) {
+    const gs = standings.byGroup[g];
+    if (gs.complete && gs.ranked[3]?.team) out.add(gs.ranked[3].team);
+  }
+  if (groupsComplete) {
+    for (const t of standings.thirds) if (!t.advances && t.team) out.add(t.team);
+  }
+  for (const m of Object.values(bracket.matches)) {
+    if (m.winner && m.a && m.b) out.add(m.winner === m.a ? m.b : m.a);
+  }
+  return out;
+}
 
 // Build name → shared rank (1, 1, 3, …) from the current scores, matching the
 // ranking table's tie handling.
@@ -255,7 +274,7 @@ function GroupMatches({ players, results, standings, onSetResult, onReorderGroup
 // the actual qualifiers entered via the bracket. Players are columns; row i
 // holds everyone's i-th pick (for 1/16 the rows follow the template slots),
 // with a per-player points row at the bottom.
-function RoundPicks({ round, players, results, ranks, showRanks }) {
+function RoundPicks({ round, players, results, ranks, showRanks, eliminated }) {
   const actualList = results.knockout[round.id] ?? [];
   const actual = new Set(actualList);
   const complete = actualList.length === round.count;
@@ -288,7 +307,7 @@ function RoundPicks({ round, players, results, ranks, showRanks }) {
                 <td className="lb-meta">{round.count > 1 ? i + 1 : ''}</td>
                 {players.map((p, pi) => {
                   const team = (p.knockout[round.id] ?? [])[i];
-                  const cls = !team ? '' : actual.has(team) ? ' hit' : complete ? ' miss' : '';
+                  const cls = !team ? '' : actual.has(team) ? ' hit' : eliminated.has(team) ? ' miss' : '';
                   return (
                     <td key={p.name} className={altCol(pi)}>
                       <span className={'lb-ko-team' + cls} title={team}>{team ?? '–'}</span>
@@ -423,6 +442,26 @@ export default function Leaderboard() {
   // Don't clutter the headers with "1." for everyone before any result exists.
   const showRanks = scores.some((s) => s.total > 0);
 
+  const bracket = useMemo(
+    () => resolveBracket(results.knockout, standings),
+    [results.knockout, standings],
+  );
+  const eliminated = useMemo(() => computeEliminated(standings, bracket), [standings, bracket]);
+
+  // Round of 32 fills itself from the standings: each finished group sends its
+  // top two through, and once every group is done the best eight third-placed
+  // teams are added automatically — no manual "confirm thirds" step here.
+  useEffect(() => {
+    const groupsComplete = tournament.groupOrder.every((g) => standings.byGroup[g].complete);
+    const thirds = groupsComplete ? standings.thirds.filter((t) => t.advances).map((t) => t.team) : [];
+    const r32 = [...fixedR32Teams(standings), ...thirds];
+    setResults((prev) => {
+      const cur = prev.knockout.r32 ?? [];
+      if (cur.length === r32.length && cur.every((t) => r32.includes(t))) return prev;
+      return { ...prev, knockout: normalizeKnockout({ ...prev.knockout, r32 }) };
+    });
+  }, [standings]);
+
   const [downloading, setDownloading] = useState(false);
   const [downloadMsg, setDownloadMsg] = useState(null);
 
@@ -444,13 +483,6 @@ export default function Leaderboard() {
     }));
   };
 
-  const setThirds = (thirdTeams) => {
-    setResults((prev) => {
-      const r32 = [...fixedR32Teams(standings), ...thirdTeams.slice(0, 8)];
-      return { ...prev, knockout: normalizeKnockout({ ...prev.knockout, r32 }) };
-    });
-  };
-
   const setMatchWinner = (targetRound, [a, b], team) => {
     setResults((prev) => {
       const cur = prev.knockout[targetRound] ?? [];
@@ -470,13 +502,18 @@ export default function Leaderboard() {
   };
 
   // Pull current group-stage results (1/X/2) from Wikipedia and merge them in,
-  // overwriting any manually entered group results with the official outcome.
+  // overwriting any manually entered results and group order with the official
+  // ones (Wikipedia's order resolves point ties by goal difference).
   const handleDownloadResults = async () => {
     setDownloading(true);
     setDownloadMsg(null);
     try {
-      const { groups, count, scored, unresolved, source } = await fetchWikiResults();
-      setResults((prev) => ({ ...prev, groups: { ...prev.groups, ...groups } }));
+      const { groups, count, scored, unresolved, source, tiebreaks } = await fetchWikiResults();
+      setResults((prev) => ({
+        ...prev,
+        groups: { ...prev.groups, ...groups },
+        tiebreaks: { ...prev.tiebreaks, ...sanitizeTiebreaks(tiebreaks) },
+      }));
       let msg;
       if (count) {
         msg = { kind: 'ok', text: `Pobrano ${count} wyników (źródło: ${source}).` };
@@ -497,9 +534,6 @@ export default function Leaderboard() {
       setDownloading(false);
     }
   };
-
-  const thirdsTeams = new Set(standings.thirds.map((t) => t.team));
-  const selectedThirds = (results.knockout.r32 ?? []).filter((t) => thirdsTeams.has(t));
 
   return (
     <div className="leaderboard">
@@ -574,20 +608,22 @@ export default function Leaderboard() {
 
           <h2 className="lb-heading">Faza pucharowa — wyniki</h2>
           <p className="legend">
-            Tak jak w typerze: po uzupełnieniu meczów grupowych zatwierdź
-            {' '}<strong>8 drużyn z 3. miejsc</strong>, a potem klikaj zwycięzców
-            kolejnych meczów w drabince.
+            Drabinka wypełnia się automatycznie wynikami grup: <strong>1. i 2.</strong>
+            {' '}miejsce z każdej zakończonej grupy wchodzi do 1/16, a po komplecie grup
+            dochodzi <strong>8 najlepszych drużyn z 3. miejsc</strong>. Puste miejsca mają
+            etykiety (np. „Zwycięzca grupy A”). Klikaj zwycięzców kolejnych meczów.
+            {standings.cutoffTied && (
+              <>
+                {' '}<span className="warn">⚠︎ Remis punktowy na granicy 8./9. najlepszego
+                3. miejsca — bez bramek może wymagać korekty.</span>
+              </>
+            )}
           </p>
-          <BestThirdsSelect
-            thirds={standings.thirds}
-            cutoffTied={standings.cutoffTied}
-            selected={selectedThirds}
-            onSetThirds={setThirds}
-          />
           <BracketStage
             knockout={results.knockout}
             standings={standings}
             onSetWinner={setMatchWinner}
+            progressive
           />
 
           <h2 className="lb-heading">Typy graczy — faza pucharowa</h2>
@@ -604,6 +640,7 @@ export default function Leaderboard() {
               results={results}
               ranks={ranks}
               showRanks={showRanks}
+              eliminated={eliminated}
             />
           ))}
     </div>

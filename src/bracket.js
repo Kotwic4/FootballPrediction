@@ -147,15 +147,34 @@ function pickWinner(a, b, set) {
   return null;
 }
 
+// Human-readable placeholder for a slot that has no team yet, e.g. before the
+// groups are decided: '1A' → "Zwycięzca grupy A", '2B' → "2. grupy B",
+// { third: 'T1' } → "3. miejsce".
+export function slotLabel(slot) {
+  if (typeof slot === 'string') {
+    const g = slot.slice(1);
+    return slot[0] === '1' ? `Zwycięzca grupy ${g}` : `2. grupy ${g}`;
+  }
+  if (slot && slot.third) return '3. miejsce';
+  return '';
+}
+
+// Placeholder for a later-round slot fed by an earlier match.
+const refLabel = (r) =>
+  r.win ? `Zwycięzca M${r.win}` : r.lose ? `Przegrany M${r.lose}` : '';
+
 const TARGET_OF_R32 = 'r16';
 
 // Resolve every bracket match: participants (a/b), winner, and loser.
 export function resolveBracket(knockout, standings) {
+  // Only a finished group yields confirmed 1st/2nd; until then the slot stays
+  // null so the bracket shows a placeholder ("Zwycięzca grupy A", …) instead of
+  // the provisional seed-order team.
   const slotTeam = {};
   for (const g of tournament.groupOrder) {
-    const r = standings.byGroup[g].ranked;
-    slotTeam['1' + g] = r[0]?.team ?? null;
-    slotTeam['2' + g] = r[1]?.team ?? null;
+    const gs = standings.byGroup[g];
+    slotTeam['1' + g] = gs.complete ? gs.ranked[0]?.team ?? null : null;
+    slotTeam['2' + g] = gs.complete ? gs.ranked[1]?.team ?? null : null;
   }
 
   const thirds = thirdPlaceTeams(standings);
@@ -179,7 +198,15 @@ export function resolveBracket(knockout, standings) {
   for (const m of R32) {
     const a = resolveSlot(m.home);
     const b = resolveSlot(m.away);
-    matches[m.nr] = { nr: m.nr, target: TARGET_OF_R32, a, b, winner: pickWinner(a, b, knockout.r16) };
+    matches[m.nr] = {
+      nr: m.nr,
+      target: TARGET_OF_R32,
+      a,
+      b,
+      aLabel: slotLabel(m.home),
+      bLabel: slotLabel(m.away),
+      winner: pickWinner(a, b, knockout.r16),
+    };
   }
 
   const ref = (r) => {
@@ -196,20 +223,30 @@ export function resolveBracket(knockout, standings) {
     for (const m of grp.matches) {
       const a = ref(m.a);
       const b = ref(m.b);
-      matches[m.nr] = { nr: m.nr, target: grp.target, a, b, winner: pickWinner(a, b, knockout[grp.target]) };
+      matches[m.nr] = {
+        nr: m.nr,
+        target: grp.target,
+        a,
+        b,
+        aLabel: refLabel(m.a),
+        bLabel: refLabel(m.b),
+        winner: pickWinner(a, b, knockout[grp.target]),
+      };
     }
   }
 
   return { matches, selectedThirds: selected, assignment };
 }
 
-// The 24 teams that always qualify (group winners + runners-up).
+// The group winners + runners-up that have been confirmed so far. Only finished
+// groups contribute, so the round of 32 fills in progressively as groups end.
 export function fixedR32Teams(standings) {
   const teams = [];
   for (const g of tournament.groupOrder) {
-    const r = standings.byGroup[g].ranked;
-    if (r[0]?.team) teams.push(r[0].team);
-    if (r[1]?.team) teams.push(r[1].team);
+    const gs = standings.byGroup[g];
+    if (!gs.complete) continue;
+    if (gs.ranked[0]?.team) teams.push(gs.ranked[0].team);
+    if (gs.ranked[1]?.team) teams.push(gs.ranked[1].team);
   }
   return teams;
 }
