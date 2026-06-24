@@ -34,7 +34,7 @@ function MatchRow({ match, pick, onPick }) {
 // Interactive best-thirds selection: confirm which 8 of the 12 third-placed
 // teams advance to the knockout stage. Also reused by the leaderboard to
 // confirm the real qualifiers.
-export function BestThirdsSelect({ thirds, cutoffTied, selected, onSetThirds }) {
+export function BestThirdsSelect({ thirds, cutoffTied, selected, onSetThirds, title = 'Awans z 3. miejsc — wybierz 8 z 12' }) {
   const selSet = new Set(selected);
   const toggle = (team) => {
     if (selSet.has(team)) onSetThirds(selected.filter((t) => t !== team));
@@ -44,7 +44,7 @@ export function BestThirdsSelect({ thirds, cutoffTied, selected, onSetThirds }) 
 
   return (
     <section className="best-thirds">
-      <h3>Awans z 3. miejsc — wybierz 8 z 12</h3>
+      <h3>{title}</h3>
       <p className="legend">
         Do fazy pucharowej awansuje <strong>8 najlepszych</strong> drużyn z 3. miejsc.
         Zaznacz te, które Twoim zdaniem przejdą dalej. Wybrano:

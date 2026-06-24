@@ -7,6 +7,7 @@ import { fixedR32Teams, resolveBracket } from '../bracket.js';
 import { scorePlayer } from '../leaderboard.js';
 import { fetchWikiResults } from '../wikiResults.js';
 import { GroupTable } from './Standings.jsx';
+import { BestThirdsSelect } from './GroupStage.jsx';
 import BracketStage from './BracketStage.jsx';
 
 const RESULTS_KEY = 'ms2026-wyniki';
@@ -417,6 +418,10 @@ export default function Leaderboard() {
       groups: r?.groups ?? {},
       knockout: r?.knockout ?? {},
       tiebreaks: sanitizeTiebreaks(r?.tiebreaks),
+      // When false, the 8 best third-placed teams are auto-selected from the
+      // standings; once the user edits the selection by hand it flips to true
+      // and their choice is kept until they reset back to auto.
+      thirdsManual: r?.thirdsManual ?? false,
     };
   });
 
@@ -448,19 +453,42 @@ export default function Leaderboard() {
   );
   const eliminated = useMemo(() => computeEliminated(standings, bracket), [standings, bracket]);
 
+  const groupsComplete = tournament.groupOrder.every((g) => standings.byGroup[g].complete);
+
   // Round of 32 fills itself from the standings: each finished group sends its
-  // top two through, and once every group is done the best eight third-placed
-  // teams are added automatically — no manual "confirm thirds" step here.
+  // top two through. The 8 best third-placed teams are added automatically once
+  // every group is done — unless the user has overridden the third-place
+  // selection by hand (thirdsManual), in which case their choice is kept.
   useEffect(() => {
-    const groupsComplete = tournament.groupOrder.every((g) => standings.byGroup[g].complete);
-    const thirds = groupsComplete ? standings.thirds.filter((t) => t.advances).map((t) => t.team) : [];
-    const r32 = [...fixedR32Teams(standings), ...thirds];
+    const thirdSet = new Set(standings.thirds.map((t) => t.team));
+    const autoThirds = groupsComplete
+      ? standings.thirds.filter((t) => t.advances).map((t) => t.team)
+      : [];
     setResults((prev) => {
-      const cur = prev.knockout.r32 ?? [];
-      if (cur.length === r32.length && cur.every((t) => r32.includes(t))) return prev;
+      const curR32 = prev.knockout.r32 ?? [];
+      const keptThirds = prev.thirdsManual ? curR32.filter((t) => thirdSet.has(t)) : autoThirds;
+      const r32 = [...fixedR32Teams(standings), ...keptThirds];
+      if (curR32.length === r32.length && curR32.every((t) => r32.includes(t))) return prev;
       return { ...prev, knockout: normalizeKnockout({ ...prev.knockout, r32 }) };
     });
-  }, [standings]);
+  }, [standings, groupsComplete]);
+
+  // Manual third-place override: lock the selection to the chosen teams.
+  const setThirds = (thirdTeams) => {
+    setResults((prev) => {
+      const r32 = [...fixedR32Teams(standings), ...thirdTeams.slice(0, 8)];
+      return { ...prev, thirdsManual: true, knockout: normalizeKnockout({ ...prev.knockout, r32 }) };
+    });
+  };
+
+  // Hand control of the third-place picks back to the automatic best-8.
+  const resetThirdsToAuto = () => {
+    setResults((prev) => {
+      const autoThirds = standings.thirds.filter((t) => t.advances).map((t) => t.team);
+      const r32 = [...fixedR32Teams(standings), ...autoThirds];
+      return { ...prev, thirdsManual: false, knockout: normalizeKnockout({ ...prev.knockout, r32 }) };
+    });
+  };
 
   const [downloading, setDownloading] = useState(false);
   const [downloadMsg, setDownloadMsg] = useState(null);
@@ -497,7 +525,7 @@ export default function Leaderboard() {
 
   const handleClearResults = () => {
     if (confirm('Wyczyścić wszystkie wpisane wyniki meczów?')) {
-      setResults({ groups: {}, knockout: {}, tiebreaks: {} });
+      setResults({ groups: {}, knockout: {}, tiebreaks: {}, thirdsManual: false });
     }
   };
 
@@ -534,6 +562,9 @@ export default function Leaderboard() {
       setDownloading(false);
     }
   };
+
+  const thirdsTeams = new Set(standings.thirds.map((t) => t.team));
+  const selectedThirds = (results.knockout.r32 ?? []).filter((t) => thirdsTeams.has(t));
 
   return (
     <div className="leaderboard">
@@ -612,13 +643,36 @@ export default function Leaderboard() {
             {' '}miejsce z każdej zakończonej grupy wchodzi do 1/16, a po komplecie grup
             dochodzi <strong>8 najlepszych drużyn z 3. miejsc</strong>. Puste miejsca mają
             etykiety (np. „Zwycięzca grupy A”). Klikaj zwycięzców kolejnych meczów.
-            {standings.cutoffTied && (
-              <>
-                {' '}<span className="warn">⚠︎ Remis punktowy na granicy 8./9. najlepszego
-                3. miejsca — bez bramek może wymagać korekty.</span>
-              </>
-            )}
           </p>
+
+          {groupsComplete ? (
+            <>
+              <div className="lb-thirds-mode">
+                <span className={results.thirdsManual ? 'badge' : 'badge badge-auto'}>
+                  {results.thirdsManual ? '✋ Wybór ręczny' : '⚙️ Wybór automatyczny (wg wyników)'}
+                </span>
+                {results.thirdsManual && (
+                  <button type="button" className="btn btn-small" onClick={resetThirdsToAuto}>
+                    ↩︎ Wróć do automatu
+                  </button>
+                )}
+              </div>
+              <BestThirdsSelect
+                thirds={standings.thirds}
+                cutoffTied={standings.cutoffTied}
+                selected={selectedThirds}
+                onSetThirds={setThirds}
+                title="Awans z 3. miejsc — 8 z 12 (możesz nadpisać ręcznie)"
+              />
+            </>
+          ) : (
+            <p className="legend">
+              Tabela 3. miejsc pojawi się po zakończeniu <strong>wszystkich</strong> meczów
+              grupowych — wtedy 8 najlepszych zostanie wybranych automatycznie (z możliwością
+              ręcznej zmiany).
+            </p>
+          )}
+
           <BracketStage
             knockout={results.knockout}
             standings={standings}

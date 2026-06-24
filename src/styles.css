@@ -596,6 +596,20 @@ body {
 .stat-bar .seg-x { background: var(--warn, #f59e0b); }
 .stat-bar .seg-2 { background: var(--accent-2); }
 
+/* Auto/manual indicator above the third-place selection table. */
+.lb-thirds-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 4px; }
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.badge-auto { color: var(--accent-2); border-color: var(--accent-2); }
+
 .lb-subheading { margin: 18px 0 10px; font-size: 1.05rem; }
 .lb-group-grid { margin-bottom: 12px; }
 .lb-group-grid .standings { margin: 0; }
