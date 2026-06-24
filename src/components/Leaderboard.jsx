@@ -646,25 +646,25 @@ export default function Leaderboard() {
           </p>
 
           {groupsComplete ? (
-            <>
-              <div className="lb-thirds-mode">
-                <span className={results.thirdsManual ? 'badge' : 'badge badge-auto'}>
-                  {results.thirdsManual ? '✋ Wybór ręczny' : '⚙️ Wybór automatyczny (wg wyników)'}
+            <BestThirdsSelect
+              thirds={standings.thirds}
+              cutoffTied={standings.cutoffTied}
+              selected={selectedThirds}
+              onSetThirds={setThirds}
+              title="Awans z 3. miejsc — 8 z 12 (możesz nadpisać ręcznie)"
+              actions={
+                <span className="lb-thirds-mode">
+                  <span className={results.thirdsManual ? 'badge' : 'badge badge-auto'}>
+                    {results.thirdsManual ? '✋ Wybór ręczny' : '⚙️ Automat (wg wyników)'}
+                  </span>
+                  {results.thirdsManual && (
+                    <button type="button" className="btn btn-small inline-btn" onClick={resetThirdsToAuto}>
+                      ↩︎ Wróć do automatu
+                    </button>
+                  )}
                 </span>
-                {results.thirdsManual && (
-                  <button type="button" className="btn btn-small" onClick={resetThirdsToAuto}>
-                    ↩︎ Wróć do automatu
-                  </button>
-                )}
-              </div>
-              <BestThirdsSelect
-                thirds={standings.thirds}
-                cutoffTied={standings.cutoffTied}
-                selected={selectedThirds}
-                onSetThirds={setThirds}
-                title="Awans z 3. miejsc — 8 z 12 (możesz nadpisać ręcznie)"
-              />
-            </>
+              }
+            />
           ) : (
             <p className="legend">
               Tabela 3. miejsc pojawi się po zakończeniu <strong>wszystkich</strong> meczów

@@ -596,8 +596,8 @@ body {
 .stat-bar .seg-x { background: var(--warn, #f59e0b); }
 .stat-bar .seg-2 { background: var(--accent-2); }
 
-/* Auto/manual indicator above the third-place selection table. */
-.lb-thirds-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 4px; }
+/* Auto/manual indicator shown inline in the third-place table header. */
+.lb-thirds-mode { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; vertical-align: middle; margin-left: 4px; }
 .badge {
   display: inline-block;
   padding: 3px 10px;
