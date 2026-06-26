@@ -289,7 +289,9 @@ function RoundPicks({ round, players, results, ranks, showRanks, eliminated }) {
           {actualList.length}/{round.count} wyników
         </span>
       </summary>
-      <div className="lb-scroll">
+      {/* Page-level horizontal scroll (like the group chrono table) so every
+          player column is reachable on a phone, not just the first few. */}
+      <div className="lb-chrono">
         <table className="lb-table">
           <thead>
             <tr>
