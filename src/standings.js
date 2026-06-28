@@ -94,31 +94,38 @@ export function sanitizeTiebreaks(tiebreaks) {
 }
 
 // Cross-group ranking of the 12 third-placed teams; the best 8 advance.
-function computeBestThirds(byGroup) {
+// Ties are broken by goal difference then goals scored when available
+// (`goalStats` from the Wikipedia download); without it we can only use points,
+// so the order among equal-point thirds falls back to group order.
+function computeBestThirds(byGroup, goalStats = {}) {
+  const gd = (t) => goalStats[t.team]?.gd ?? 0;
+  const gf = (t) => goalStats[t.team]?.gf ?? 0;
+  const same = (a, b) => a.pts === b.pts && gd(a) === gd(b) && gf(a) === gf(b);
+
   const thirds = [];
   for (const g of tournament.groupOrder) {
     const third = byGroup[g]?.ranked.find((x) => x.position === 3);
     if (third) thirds.push({ ...third, group: g });
   }
-  thirds.sort((a, b) => b.pts - a.pts);
+  thirds.sort((a, b) => b.pts - a.pts || gd(b) - gd(a) || gf(b) - gf(a));
   thirds.forEach((t, idx) => {
     t.rank = idx + 1;
     t.advances = idx < 8;
   });
   for (const t of thirds) {
-    t.tied = thirds.some((o) => o !== t && o.pts === t.pts);
+    t.tied = thirds.some((o) => o !== t && same(o, t));
   }
-  const cutoffTied = thirds.length > 8 && thirds[7]?.pts === thirds[8]?.pts;
+  const cutoffTied = thirds.length > 8 && same(thirds[7], thirds[8]);
   return { thirds, cutoffTied };
 }
 
 // One pass over all group picks: per-group tables, best-thirds race, and the
 // set of 32 teams the predictions imply will reach the round of 32.
 // `tiebreaks` maps group → manual team order used to settle point ties.
-export function buildStandings(groupPicks, tiebreaks = {}) {
+export function buildStandings(groupPicks, tiebreaks = {}, goalStats = {}) {
   const byGroup = {};
   for (const g of tournament.groupOrder) byGroup[g] = computeGroupStandings(g, groupPicks, tiebreaks[g]);
-  const { thirds, cutoffTied } = computeBestThirds(byGroup);
+  const { thirds, cutoffTied } = computeBestThirds(byGroup, goalStats);
 
   const advancers = new Set();
   for (const g of tournament.groupOrder) {

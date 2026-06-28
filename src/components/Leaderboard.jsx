@@ -420,6 +420,9 @@ export default function Leaderboard() {
       groups: r?.groups ?? {},
       knockout: r?.knockout ?? {},
       tiebreaks: sanitizeTiebreaks(r?.tiebreaks),
+      // Goal diff / goals for per team, from the Wikipedia download. Used to
+      // rank the third-placed teams correctly (our 1/X/2 data has no goals).
+      goalStats: r?.goalStats ?? {},
       // When false, the 8 best third-placed teams are auto-selected from the
       // standings; once the user edits the selection by hand it flips to true
       // and their choice is kept until they reset back to auto.
@@ -438,8 +441,8 @@ export default function Leaderboard() {
   }, []);
 
   const standings = useMemo(
-    () => buildStandings(results.groups, results.tiebreaks),
-    [results.groups, results.tiebreaks],
+    () => buildStandings(results.groups, results.tiebreaks, results.goalStats),
+    [results.groups, results.tiebreaks, results.goalStats],
   );
   const scores = useMemo(
     () => players.map((p) => ({ player: p, ...scorePlayer(p, results) })),
@@ -527,7 +530,7 @@ export default function Leaderboard() {
 
   const handleClearResults = () => {
     if (confirm('Wyczyścić wszystkie wpisane wyniki meczów?')) {
-      setResults({ groups: {}, knockout: {}, tiebreaks: {}, thirdsManual: false });
+      setResults({ groups: {}, knockout: {}, tiebreaks: {}, goalStats: {}, thirdsManual: false });
     }
   };
 
@@ -538,11 +541,12 @@ export default function Leaderboard() {
     setDownloading(true);
     setDownloadMsg(null);
     try {
-      const { groups, count, scored, unresolved, source, tiebreaks } = await fetchWikiResults();
+      const { groups, count, scored, unresolved, source, tiebreaks, stats } = await fetchWikiResults();
       setResults((prev) => ({
         ...prev,
         groups: { ...prev.groups, ...groups },
         tiebreaks: { ...prev.tiebreaks, ...sanitizeTiebreaks(tiebreaks) },
+        goalStats: { ...prev.goalStats, ...stats },
       }));
       let msg;
       if (count) {
