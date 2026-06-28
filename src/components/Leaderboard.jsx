@@ -414,6 +414,9 @@ function GroupStats({ results, scores }) {
 
 export default function Leaderboard() {
   const [matchView, setMatchView] = useState('chrono');
+  // Which block of the page is shown: the group stage or straight to knockout.
+  // Knockout is the default now that the group stage is over.
+  const [section, setSection] = useState('knockout');
   const [results, setResults] = useState(() => {
     const r = loadJson(RESULTS_KEY);
     return {
@@ -594,6 +597,25 @@ export default function Leaderboard() {
           </p>
           <Ranking scores={scores} />
 
+          <div className="round-tabs lb-section-tabs">
+            <button
+              type="button"
+              className={section === 'groups' ? 'round-tab active' : 'round-tab'}
+              onClick={() => setSection('groups')}
+            >
+              📊 Faza grupowa
+            </button>
+            <button
+              type="button"
+              className={section === 'knockout' ? 'round-tab active' : 'round-tab'}
+              onClick={() => setSection('knockout')}
+            >
+              🏆 Faza pucharowa
+            </button>
+          </div>
+
+          {section === 'groups' && (
+            <>
           <h2 className="lb-heading">Faza grupowa — wyniki i typy</h2>
           <p className="legend">
             Wpisz wynik meczu (1/X/2) w kolumnie <strong>Wynik</strong> — trafione typy
@@ -643,14 +665,7 @@ export default function Leaderboard() {
             />
           )}
 
-          <h2 className="lb-heading">Faza pucharowa — wyniki</h2>
-          <p className="legend">
-            Drabinka wypełnia się automatycznie wynikami grup: <strong>1. i 2.</strong>
-            {' '}miejsce z każdej zakończonej grupy wchodzi do 1/16, a po komplecie grup
-            dochodzi <strong>8 najlepszych drużyn z 3. miejsc</strong>. Puste miejsca mają
-            etykiety (np. „Zwycięzca grupy A”). Klikaj zwycięzców kolejnych meczów.
-          </p>
-
+          <h2 className="lb-heading">Awans z 3. miejsc</h2>
           {groupsComplete ? (
             <BestThirdsSelect
               thirds={standings.thirds}
@@ -678,6 +693,19 @@ export default function Leaderboard() {
               ręcznej zmiany).
             </p>
           )}
+            </>
+          )}
+
+          {section === 'knockout' && (
+            <>
+          <h2 className="lb-heading">Faza pucharowa — wyniki</h2>
+          <p className="legend">
+            Drabinka wypełnia się automatycznie wynikami grup: <strong>1. i 2.</strong>
+            {' '}miejsce z każdej zakończonej grupy wchodzi do 1/16, a po komplecie grup
+            dochodzi <strong>8 najlepszych drużyn z 3. miejsc</strong> (wybierane w zakładce
+            {' '}„Faza grupowa”). Puste miejsca mają etykiety (np. „Zwycięzca grupy A”).
+            Klikaj zwycięzców kolejnych meczów.
+          </p>
 
           <BracketStage
             knockout={results.knockout}
@@ -703,6 +731,8 @@ export default function Leaderboard() {
               eliminated={eliminated}
             />
           ))}
+            </>
+          )}
     </div>
   );
 }
