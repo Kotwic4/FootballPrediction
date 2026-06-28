@@ -135,15 +135,18 @@ function toResults(raw, resolve) {
 
 const resolveEn = (name) => normalizeTeam(EN_TO_PL[name.trim().toLowerCase()] ?? name);
 
-// Read the official group order from the standings tables. Our 1/X/2 data can't
-// compute goal difference, so Wikipedia's order is the only way to settle point
-// ties correctly. A standings table is a wikitable whose team rows resolve to
-// exactly one group's four teams; we keep their row order as the tiebreak order.
+// Read the official group order AND goal stats from the standings tables. Our
+// 1/X/2 data can't compute goal difference, so Wikipedia is the only way to
+// settle ties correctly — both the within-group order (tiebreaks) and the
+// cross-group ranking of third-placed teams (which needs goal diff / goals for).
+// A standings table is a wikitable whose team rows resolve to exactly one
+// group's four teams; columns end with … GF, GA, GD, Pts.
 function readStandings(doc, resolve) {
   const byGroup = tournament.groupOrder.map((g) => ({ g, set: new Set(tournament.groups[g]) }));
   const tiebreaks = {};
+  const stats = {};
   for (const table of doc.querySelectorAll('table.wikitable')) {
-    const order = [];
+    const rows = [];
     for (const tr of table.querySelectorAll('tr')) {
       let team = null;
       for (const a of tr.querySelectorAll('a')) {
@@ -153,13 +156,21 @@ function readStandings(doc, resolve) {
           break;
         }
       }
-      if (team && !order.includes(team)) order.push(team);
+      if (!team || rows.some((r) => r.team === team)) continue;
+      // Wikipedia writes negatives with U+2212 (minus) / U+2013 (en-dash); normalise to '-'.
+      const nums = (tr.textContent.replace(/[−–]/g, '-').match(/-?\d+/g) || []).map(Number);
+      rows.push({ team, nums });
     }
-    if (order.length !== 4) continue;
+    if (rows.length !== 4) continue;
+    const order = rows.map((r) => r.team);
     const hit = byGroup.find(({ set }) => order.every((t) => set.has(t)));
-    if (hit && !tiebreaks[hit.g]) tiebreaks[hit.g] = order;
+    if (!hit || tiebreaks[hit.g]) continue;
+    tiebreaks[hit.g] = order;
+    for (const { team, nums } of rows) {
+      if (nums.length >= 4) stats[team] = { gd: nums[nums.length - 2], gf: nums[nums.length - 4] };
+    }
   }
-  return tiebreaks;
+  return { tiebreaks, stats };
 }
 
 const SOURCES = [
@@ -171,14 +182,15 @@ async function runSource(src) {
   const doc = await fetchDoc(src.host, src.page);
   return {
     ...toResults(src.read(doc), src.resolve),
-    tiebreaks: readStandings(doc, src.resolve),
+    ...readStandings(doc, src.resolve),
   };
 }
 
 /**
  * Fetch current group-stage results, trying each source until one returns data.
- * Returns { groups, count, scored, unresolved, tiebreaks, source } (source =
- * which site supplied the data, or null when none had results). Throws only when
+ * Returns { groups, count, scored, unresolved, tiebreaks, stats, source }
+ * (source = which site supplied the data, or null when none had results;
+ * stats = { team: { gd, gf } } for the third-place ranking). Throws only when
  * every source failed to load.
  */
 export async function fetchWikiResults() {
