@@ -1,5 +1,6 @@
 import { tournament } from './data/tournament.js';
 import { normalizeTeam } from './leaderboard.js';
+import { KO_MATCH_TARGET } from './bracket.js';
 
 // Group-stage match results scraped from Wikipedia. We try the Polish article
 // first (team names already match ours) and fall back to the English article
@@ -101,6 +102,43 @@ function readPolish(doc) {
   return out;
 }
 
+// Read knockout winners from the Polish "mecz-pilkarski" boxes (numbered
+// "Mecz N", N 73–104). For each played box we map N → the round its winner
+// joins (KO_MATCH_TARGET) and add the winner. A decisive score gives the
+// winner directly; a draw is resolved by the penalty score if present.
+function readKnockoutPolish(doc, resolve) {
+  const knockout = {};
+  for (const box of doc.querySelectorAll('table.mecz-pilkarski')) {
+    const numM = box.textContent.match(/Mecz\s+(\d+)/);
+    if (!numM) continue;
+    const target = KO_MATCH_TARGET[Number(numM[1])];
+    if (!target) continue; // group match
+    const tds = Array.from(box.querySelectorAll('td'));
+    for (let i = 1; i < tds.length - 1; i++) {
+      const cell = tds[i].textContent.trim();
+      const m = cell.match(/^(\d+)\s*:\s*(\d+)/);
+      if (!m) continue;
+      const home = firstLink(tds[i - 1]);
+      const away = firstLink(tds[i + 1]);
+      if (!home || !away) break;
+      const hg = +m[1];
+      const ag = +m[2];
+      let winnerName = null;
+      if (hg !== ag) {
+        winnerName = hg > ag ? home : away;
+      } else {
+        // Draw → penalty shootout, e.g. "… karne 4:2".
+        const pk = box.textContent.match(/(?:karne|rzuty)[^0-9]{0,14}(\d+)\s*[:–-]\s*(\d+)/i);
+        if (pk) winnerName = +pk[1] > +pk[2] ? home : away;
+      }
+      const winner = winnerName && resolve(winnerName);
+      if (winner) (knockout[target] ??= []).push(winner);
+      break;
+    }
+  }
+  return knockout;
+}
+
 // Read played fixtures from the English "footballbox" template.
 function readEnglish(doc) {
   const out = [];
@@ -174,8 +212,10 @@ function readStandings(doc, resolve) {
 }
 
 const SOURCES = [
-  { name: 'pl-wiki', host: 'pl.wikipedia.org', page: 'Mistrzostwa Świata w Piłce Nożnej 2026', read: readPolish, resolve: normalizeTeam },
-  { name: 'en-wiki', host: 'en.wikipedia.org', page: '2026 FIFA World Cup', read: readEnglish, resolve: resolveEn },
+  { name: 'pl-wiki', host: 'pl.wikipedia.org', page: 'Mistrzostwa Świata w Piłce Nożnej 2026', read: readPolish, readKo: readKnockoutPolish, resolve: normalizeTeam },
+  // English Wikipedia doesn't number its knockout boxes, so knockout winners
+  // come from the Polish source only (the primary one anyway).
+  { name: 'en-wiki', host: 'en.wikipedia.org', page: '2026 FIFA World Cup', read: readEnglish, readKo: () => ({}), resolve: resolveEn },
 ];
 
 async function runSource(src) {
@@ -183,14 +223,16 @@ async function runSource(src) {
   return {
     ...toResults(src.read(doc), src.resolve),
     ...readStandings(doc, src.resolve),
+    knockout: src.readKo(doc, src.resolve),
   };
 }
 
 /**
  * Fetch current group-stage results, trying each source until one returns data.
- * Returns { groups, count, scored, unresolved, tiebreaks, stats, source }
+ * Returns { groups, count, scored, unresolved, tiebreaks, stats, knockout, source }
  * (source = which site supplied the data, or null when none had results;
- * stats = { team: { gd, gf } } for the third-place ranking). Throws only when
+ * stats = { team: { gd, gf } } for the third-place ranking; knockout =
+ * { roundId: [winners] } scraped from the knockout boxes). Throws only when
  * every source failed to load.
  */
 export async function fetchWikiResults() {

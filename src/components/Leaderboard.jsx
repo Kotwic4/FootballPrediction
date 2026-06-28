@@ -544,16 +544,26 @@ export default function Leaderboard() {
     setDownloading(true);
     setDownloadMsg(null);
     try {
-      const { groups, count, scored, unresolved, source, tiebreaks, stats } = await fetchWikiResults();
+      const { groups, count, scored, unresolved, source, tiebreaks, stats, knockout } = await fetchWikiResults();
+      // Merge knockout winners raw; the auto-R32 effect normalises them against
+      // the freshly recomputed round of 32 (pruning here would use the stale one).
       setResults((prev) => ({
         ...prev,
         groups: { ...prev.groups, ...groups },
         tiebreaks: { ...prev.tiebreaks, ...sanitizeTiebreaks(tiebreaks) },
         goalStats: { ...prev.goalStats, ...stats },
+        knockout: { ...prev.knockout, ...knockout },
       }));
+      const koCount = Object.values(knockout).reduce((a, b) => a + b.length, 0);
       let msg;
       if (count) {
-        msg = { kind: 'ok', text: `Pobrano ${count} wyników (źródło: ${source}).` };
+        msg = {
+          kind: 'ok',
+          text:
+            `Pobrano ${count} wyników grupowych` +
+            (koCount ? ` i ${koCount} pucharowych` : '') +
+            ` (źródło: ${source}).`,
+        };
       } else if (scored === 0) {
         msg = { kind: 'warn', text: 'Żaden mecz nie został jeszcze rozegrany na Wikipedii.' };
       } else if (unresolved) {
