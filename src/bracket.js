@@ -165,6 +165,15 @@ const refLabel = (r) =>
 
 const TARGET_OF_R32 = 'r16';
 
+// Knockout match number (73–104) → the round its WINNER joins. Used to map a
+// scraped knockout result onto the right round set.
+export const KO_MATCH_TARGET = (() => {
+  const map = {};
+  for (const m of R32) map[m.nr] = TARGET_OF_R32;
+  for (const grp of LATER) for (const m of grp.matches) map[m.nr] = grp.target;
+  return map;
+})();
+
 // Resolve every bracket match: participants (a/b), winner, and loser.
 export function resolveBracket(knockout, standings) {
   // Only a finished group yields confirmed 1st/2nd; until then the slot stays

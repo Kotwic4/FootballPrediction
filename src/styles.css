@@ -481,7 +481,10 @@ body {
 
 /* Ranking page: the bracket grows to its full height — only the page scrolls
    (no inner vertical scrollbar). Horizontal scroll remains for narrow screens. */
-.app-ranking .bracket-scroll { max-height: none; }
+/* Ranking page: let the bracket overflow to page width and scroll with the
+   page horizontally (like the group / knockout pick tables), instead of being
+   trapped in an inner scroll box where only part of it is reachable. */
+.app-ranking .bracket-scroll { max-height: none; overflow: visible; }
 
 /* Chronological view: scrolls with the page; the header row (player names)
    sticks to the viewport top. */

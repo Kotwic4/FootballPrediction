@@ -1,5 +1,6 @@
 import { tournament } from './data/tournament.js';
 import { normalizeTeam } from './leaderboard.js';
+import { KO_MATCH_TARGET } from './bracket.js';
 
 // Group-stage match results scraped from Wikipedia. We try the Polish article
 // first (team names already match ours) and fall back to the English article
@@ -101,6 +102,43 @@ function readPolish(doc) {
   return out;
 }
 
+// Read knockout winners from the Polish "mecz-pilkarski" boxes (numbered
+// "Mecz N", N 73–104). For each played box we map N → the round its winner
+// joins (KO_MATCH_TARGET) and add the winner. A decisive score gives the
+// winner directly; a draw is resolved by the penalty score if present.
+function readKnockoutPolish(doc, resolve) {
+  const knockout = {};
+  for (const box of doc.querySelectorAll('table.mecz-pilkarski')) {
+    const numM = box.textContent.match(/Mecz\s+(\d+)/);
+    if (!numM) continue;
+    const target = KO_MATCH_TARGET[Number(numM[1])];
+    if (!target) continue; // group match
+    const tds = Array.from(box.querySelectorAll('td'));
+    for (let i = 1; i < tds.length - 1; i++) {
+      const cell = tds[i].textContent.trim();
+      const m = cell.match(/^(\d+)\s*:\s*(\d+)/);
+      if (!m) continue;
+      const home = firstLink(tds[i - 1]);
+      const away = firstLink(tds[i + 1]);
+      if (!home || !away) break;
+      const hg = +m[1];
+      const ag = +m[2];
+      let winnerName = null;
+      if (hg !== ag) {
+        winnerName = hg > ag ? home : away;
+      } else {
+        // Draw → penalty shootout, e.g. "… karne 4:2".
+        const pk = box.textContent.match(/(?:karne|rzuty)[^0-9]{0,14}(\d+)\s*[:–-]\s*(\d+)/i);
+        if (pk) winnerName = +pk[1] > +pk[2] ? home : away;
+      }
+      const winner = winnerName && resolve(winnerName);
+      if (winner) (knockout[target] ??= []).push(winner);
+      break;
+    }
+  }
+  return knockout;
+}
+
 // Read played fixtures from the English "footballbox" template.
 function readEnglish(doc) {
   const out = [];
@@ -112,6 +150,39 @@ function readEnglish(doc) {
     if (home && away) out.push({ home, away, hg: +m[1], ag: +m[2] });
   }
   return out;
+}
+
+// Read knockout winners from the English page, which doesn't number its boxes.
+// Walk headings and football boxes in document order, tracking which knockout
+// round the current section is, and add each box's winner to that round.
+function readKnockoutEnglish(doc, resolve) {
+  const targetFor = (text) => {
+    const t = text.toLowerCase();
+    if (t.includes('round of 32')) return 'r16';
+    if (t.includes('round of 16')) return 'qf';
+    if (t.includes('quarter')) return 'sf';
+    if (t.includes('semi')) return 'final';
+    if (t.includes('third place')) return 'third';
+    if (t.includes('final')) return 'champion';
+    return null; // group stage / other → don't assign
+  };
+  const knockout = {};
+  let target = null;
+  for (const el of doc.querySelectorAll('h2, h3, h4, .footballbox')) {
+    if (el.matches('.footballbox')) {
+      if (!target) continue;
+      const m = parseScore(el.querySelector('.fscore')?.textContent || '');
+      if (!m) continue;
+      const home = firstLink(el.querySelector('.fhome'));
+      const away = firstLink(el.querySelector('.faway'));
+      if (!home || !away || +m[1] === +m[2]) continue; // draw → penalties (skip; PL covers)
+      const win = resolve(+m[1] > +m[2] ? home : away);
+      if (win) (knockout[target] ??= []).push(win);
+    } else {
+      target = targetFor(el.textContent);
+    }
+  }
+  return knockout;
 }
 
 // Map raw {home, away, hg, ag} fixtures onto our nr → '1'|'X'|'2'.
@@ -174,8 +245,8 @@ function readStandings(doc, resolve) {
 }
 
 const SOURCES = [
-  { name: 'pl-wiki', host: 'pl.wikipedia.org', page: 'Mistrzostwa Świata w Piłce Nożnej 2026', read: readPolish, resolve: normalizeTeam },
-  { name: 'en-wiki', host: 'en.wikipedia.org', page: '2026 FIFA World Cup', read: readEnglish, resolve: resolveEn },
+  { name: 'pl-wiki', host: 'pl.wikipedia.org', page: 'Mistrzostwa Świata w Piłce Nożnej 2026', read: readPolish, readKo: readKnockoutPolish, resolve: normalizeTeam },
+  { name: 'en-wiki', host: 'en.wikipedia.org', page: '2026 FIFA World Cup', read: readEnglish, readKo: readKnockoutEnglish, resolve: resolveEn },
 ];
 
 async function runSource(src) {
@@ -183,28 +254,40 @@ async function runSource(src) {
   return {
     ...toResults(src.read(doc), src.resolve),
     ...readStandings(doc, src.resolve),
+    knockout: src.readKo(doc, src.resolve),
   };
 }
 
 /**
- * Fetch current group-stage results, trying each source until one returns data.
- * Returns { groups, count, scored, unresolved, tiebreaks, stats, source }
- * (source = which site supplied the data, or null when none had results;
- * stats = { team: { gd, gf } } for the third-place ranking). Throws only when
- * every source failed to load.
+ * Fetch current results from every source in parallel. Groups / standings come
+ * from the first source that has group data; knockout winners are merged (union)
+ * across all sources, so a result that reached one Wikipedia edition first is
+ * still picked up even if the other lags.
+ * Returns { groups, count, scored, unresolved, tiebreaks, stats, knockout, source }
+ * (stats = { team: { gd, gf } }; knockout = { roundId: [winners] }).
+ * Throws only when every source failed to load.
  */
 export async function fetchWikiResults() {
+  const settled = await Promise.allSettled(SOURCES.map((src) => runSource(src)));
+  const ok = [];
   const errors = [];
-  let fallback = null;
-  for (const src of SOURCES) {
-    try {
-      const r = await runSource(src);
-      if (r.count > 0) return { ...r, source: src.name };
-      fallback = fallback ?? { ...r, source: src.name };
-    } catch (err) {
-      errors.push(`${src.name}: ${err.message}`);
+  settled.forEach((s, i) => {
+    if (s.status === 'fulfilled') ok.push({ name: SOURCES[i].name, r: s.value });
+    else errors.push(`${SOURCES[i].name}: ${s.reason?.message ?? s.reason}`);
+  });
+  if (!ok.length) throw new Error(errors.join(' · ') || 'brak źródeł');
+
+  const primary = ok.find((o) => o.r.count > 0) ?? ok[0];
+
+  // Union the knockout winners from every source that loaded.
+  const knockout = {};
+  for (const { r } of ok) {
+    for (const [round, teams] of Object.entries(r.knockout ?? {})) {
+      const set = new Set(knockout[round]);
+      teams.forEach((t) => set.add(t));
+      knockout[round] = [...set];
     }
   }
-  if (fallback) return fallback;
-  throw new Error(errors.join(' · ') || 'brak źródeł');
+
+  return { ...primary.r, knockout, source: primary.name };
 }
