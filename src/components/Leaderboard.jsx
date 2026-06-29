@@ -81,11 +81,11 @@ function Ranking({ scores }) {
         <tr>
           <th>#</th>
           <th className="ta-left">Gracz</th>
+          <th>Suma</th>
           <th title="Mecze grupowe">Grupy</th>
           {tournament.rounds.map((r) => (
             <th key={r.id} title={r.label}>{ROUND_SHORT[r.id]}</th>
           ))}
-          <th>Suma</th>
         </tr>
       </thead>
       <tbody>
@@ -97,13 +97,13 @@ function Ranking({ scores }) {
             <tr key={s.player.name} className="standings-row">
               <td>{medal ?? rank}</td>
               <td className="ta-left">{s.player.name}</td>
+              <td className="pts">{s.total}</td>
               <td title={`${s.groupsCorrect} trafień z ${s.groupsPlayed} rozegranych`}>
                 {s.breakdown.groups}
               </td>
               {tournament.rounds.map((r) => (
                 <td key={r.id}>{s.breakdown[r.id]}</td>
               ))}
-              <td className="pts">{s.total}</td>
             </tr>
           );
         })}
