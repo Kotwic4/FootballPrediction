@@ -451,6 +451,35 @@ body {
 .bk-team.tbd { color: var(--muted); cursor: default; font-style: italic; font-size: 0.74rem; }
 .col-final .bk-team.winner { background: rgba(250, 204, 21, 0.25); }
 
+/* Circular ("circle of flags") knockout view */
+.bracket-view-tabs { margin-bottom: 10px; }
+.circular-bracket { max-width: 760px; margin: 0 auto; }
+.cb-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+/* Connector lines converging on the centre. */
+.cb-lines line { stroke: var(--border); stroke-width: 2; }
+/* Flags. The image is clipped to a circle; the ring is the visible border. */
+.cb-flag-ring { fill: none; stroke: var(--border); stroke-width: 2.5; }
+.cb-flag-empty { fill: var(--surface-2); stroke: var(--border); stroke-width: 2; }
+.cb-flag-initials { fill: var(--muted); font-size: 16px; font-weight: 700; text-anchor: middle; }
+.cb-clickable { cursor: pointer; }
+.cb-clickable:hover .cb-flag-ring { stroke: var(--accent-2); stroke-width: 3.5; }
+/* Winners get a green ring; the champion at the centre gets a gold one. */
+.cb-won .cb-flag-ring { stroke: var(--accent); stroke-width: 3.5; }
+.cb-champ .cb-flag-ring { stroke: #facc15; stroke-width: 5; }
+.cb-lost { opacity: 0.4; }
+.cb-lost .cb-flag-ring { stroke: var(--border); }
+.cb-trophy { font-size: 70px; text-anchor: middle; }
+.cb-trophy-mark { font-size: 30px; text-anchor: middle; }
+.cb-bronze-label { fill: var(--muted); font-size: 15px; text-anchor: middle; }
+.cb-hint { margin-top: 8px; }
+
 /* Leaderboard (Ranking) */
 .lb-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
 .lb-updated { color: var(--muted); font-size: 0.82rem; }
