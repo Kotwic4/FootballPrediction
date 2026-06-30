@@ -81,7 +81,16 @@ async function fetchDoc(host, page) {
   return new DOMParser().parseFromString(html, 'text/html');
 }
 
-const firstLink = (el) => el?.querySelector('a')?.textContent.trim() || '';
+// First anchor with actual text. The away/right-hand team cell puts the flag
+// link (an <a> wrapping only an <img>, so empty text) before the team-name
+// link, so we must skip empty anchors rather than blindly take the first one.
+const firstLink = (el) => {
+  for (const a of el?.querySelectorAll('a') ?? []) {
+    const t = a.textContent.trim();
+    if (t) return t;
+  }
+  return '';
+};
 const parseScore = (text) => text.replace(/\s+/g, ' ').match(/(\d+)\s*[–:-]\s*(\d+)/);
 
 // Read played fixtures from the Polish "mecz-pilkarski" boxes. The score cell is
@@ -127,8 +136,11 @@ function readKnockoutPolish(doc, resolve) {
       if (hg !== ag) {
         winnerName = hg > ag ? home : away;
       } else {
-        // Draw → penalty shootout, e.g. "… karne 4:2".
-        const pk = box.textContent.match(/(?:karne|rzuty)[^0-9]{0,14}(\d+)\s*[:–-]\s*(\d+)/i);
+        // Draw → penalty shootout. The score cell shows the shootout under the
+        // result, abbreviated "k." (karne), e.g. "1:1 k. 3:4". Match against the
+        // score cell (not the whole box) so scorer "(k.)" penalty-goal notes
+        // elsewhere can't be mistaken for the shootout score.
+        const pk = cell.match(/(?:karne|rzuty|k\.)[^0-9]{0,14}(\d+)\s*[:–-]\s*(\d+)/i);
         if (pk) winnerName = +pk[1] > +pk[2] ? home : away;
       }
       const winner = winnerName && resolve(winnerName);
@@ -152,36 +164,64 @@ function readEnglish(doc) {
   return out;
 }
 
-// Read knockout winners from the English page, which doesn't number its boxes.
-// Walk headings and football boxes in document order, tracking which knockout
-// round the current section is, and add each box's winner to that round.
+// Read knockout winners from the English page. Its match box hides penalty
+// results as a draw ("1–1 (a.e.t.)"), so the winner can't be read from the
+// score. Instead we read the *participants* of each round's boxes: a team that
+// appears in a Round-of-16 box won its Round-of-32 tie (penalties included), so
+// it belongs in the 'r16' set; teams in the Quarter-final boxes are 'qf', and
+// so on. The two terminal winners with no "next round" to advance into — the
+// champion (winner of the final) and the third place — are read from the score,
+// which is decisive for those two matches; a penalty final is covered by the
+// Polish source via the union in fetchWikiResults.
 function readKnockoutEnglish(doc, resolve) {
-  const targetFor = (text) => {
+  // Section heading → the round set whose MEMBERS play their match here.
+  const memberSet = (text) => {
     const t = text.toLowerCase();
-    if (t.includes('round of 32')) return 'r16';
-    if (t.includes('round of 16')) return 'qf';
-    if (t.includes('quarter')) return 'sf';
-    if (t.includes('semi')) return 'final';
+    if (t.includes('round of 16')) return 'r16';
+    if (t.includes('quarter')) return 'qf';
+    if (t.includes('semi')) return 'sf';
+    if (t.includes('third place')) return null; // terminal, see winnerSet
+    if (t.includes('final')) return 'final'; // the two finalists
+    return null; // round of 32 / group / other
+  };
+  // Section heading → terminal winner set read from the decisive score.
+  const winnerSet = (text) => {
+    const t = text.toLowerCase();
+    if (t.includes('quarter') || t.includes('semi')) return null;
     if (t.includes('third place')) return 'third';
     if (t.includes('final')) return 'champion';
-    return null; // group stage / other → don't assign
+    return null;
+  };
+  // A real team, not a "Match 77" / "Winner Match 74" / "Loser Match 101" stub.
+  const teamOf = (el) => {
+    for (const a of el?.querySelectorAll('a') ?? []) {
+      const t = a.textContent.trim();
+      if (t && !/^(match|winner|loser)\b/i.test(t)) return t;
+    }
+    return '';
   };
   const knockout = {};
-  let target = null;
+  const add = (set, team) => {
+    if (set && team) (knockout[set] ??= []).push(team);
+  };
+  let member = null;
+  let winner = null;
   for (const el of doc.querySelectorAll('h2, h3, h4, .footballbox')) {
-    if (el.matches('.footballbox')) {
-      if (!target) continue;
+    if (!el.matches('.footballbox')) {
+      member = memberSet(el.textContent);
+      winner = winnerSet(el.textContent);
+      continue;
+    }
+    const home = teamOf(el.querySelector('.fhome'));
+    const away = teamOf(el.querySelector('.faway'));
+    add(member, resolve(home));
+    add(member, resolve(away));
+    if (winner) {
       const m = parseScore(el.querySelector('.fscore')?.textContent || '');
-      if (!m) continue;
-      const home = firstLink(el.querySelector('.fhome'));
-      const away = firstLink(el.querySelector('.faway'));
-      if (!home || !away || +m[1] === +m[2]) continue; // draw → penalties (skip; PL covers)
-      const win = resolve(+m[1] > +m[2] ? home : away);
-      if (win) (knockout[target] ??= []).push(win);
-    } else {
-      target = targetFor(el.textContent);
+      if (m && home && away && +m[1] !== +m[2]) add(winner, resolve(+m[1] > +m[2] ? home : away));
     }
   }
+  for (const k of Object.keys(knockout)) knockout[k] = [...new Set(knockout[k])];
   return knockout;
 }
 
@@ -244,9 +284,13 @@ function readStandings(doc, resolve) {
   return { tiebreaks, stats };
 }
 
+// English first: it updates noticeably sooner than the Polish article (group
+// results, standings and especially knockout advancement after penalties), so
+// it is the primary source for groups/standings/stats. Polish stays as a
+// fallback and its knockout winners are still unioned in (see fetchWikiResults).
 const SOURCES = [
-  { name: 'pl-wiki', host: 'pl.wikipedia.org', page: 'Mistrzostwa Świata w Piłce Nożnej 2026', read: readPolish, readKo: readKnockoutPolish, resolve: normalizeTeam },
   { name: 'en-wiki', host: 'en.wikipedia.org', page: '2026 FIFA World Cup', read: readEnglish, readKo: readKnockoutEnglish, resolve: resolveEn },
+  { name: 'pl-wiki', host: 'pl.wikipedia.org', page: 'Mistrzostwa Świata w Piłce Nożnej 2026', read: readPolish, readKo: readKnockoutPolish, resolve: normalizeTeam },
 ];
 
 async function runSource(src) {
@@ -289,5 +333,16 @@ export async function fetchWikiResults() {
     }
   }
 
-  return { ...primary.r, knockout, source: primary.name };
+  // Merge goal stats and tiebreak orders across sources. The primary (Polish)
+  // page lists a compact rank+team table that shadows its full standings, so it
+  // often yields no goal stats; the English page does. Take stats/tiebreaks from
+  // the primary first, then fill gaps from the other sources.
+  const stats = {};
+  const tiebreaks = {};
+  for (const { r } of [primary, ...ok.filter((o) => o !== primary)]) {
+    for (const [team, s] of Object.entries(r.stats ?? {})) stats[team] ??= s;
+    for (const [group, order] of Object.entries(r.tiebreaks ?? {})) tiebreaks[group] ??= order;
+  }
+
+  return { ...primary.r, tiebreaks, stats, knockout, source: primary.name };
 }
