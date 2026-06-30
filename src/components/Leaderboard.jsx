@@ -9,6 +9,7 @@ import { fetchWikiResults } from '../wikiResults.js';
 import { GroupTable } from './Standings.jsx';
 import { BestThirdsSelect } from './GroupStage.jsx';
 import BracketStage from './BracketStage.jsx';
+import CircularBracket from './CircularBracket.jsx';
 
 const RESULTS_KEY = 'ms2026-wyniki';
 const LEGACY_DATA_KEY = 'ms2026-zbiorcza';
@@ -417,6 +418,8 @@ export default function Leaderboard() {
   // Which block of the page is shown: the group stage or straight to knockout.
   // Knockout is the default now that the group stage is over.
   const [section, setSection] = useState('knockout');
+  // Knockout layout: classic left-to-right columns, or the radial circle of flags.
+  const [bracketView, setBracketView] = useState('columns');
   const [results, setResults] = useState(() => {
     const r = loadJson(RESULTS_KEY);
     return {
@@ -717,12 +720,36 @@ export default function Leaderboard() {
             Klikaj zwycięzców kolejnych meczów.
           </p>
 
-          <BracketStage
-            knockout={results.knockout}
-            standings={standings}
-            onSetWinner={setMatchWinner}
-            progressive
-          />
+          <div className="round-tabs bracket-view-tabs">
+            <button
+              className={bracketView === 'columns' ? 'round-tab active' : 'round-tab'}
+              onClick={() => setBracketView('columns')}
+            >
+              🗂️ Drabinka
+            </button>
+            <button
+              className={bracketView === 'circle' ? 'round-tab active' : 'round-tab'}
+              onClick={() => setBracketView('circle')}
+            >
+              🎡 Koło z flagami
+            </button>
+          </div>
+
+          {bracketView === 'circle' ? (
+            <CircularBracket
+              knockout={results.knockout}
+              standings={standings}
+              onSetWinner={setMatchWinner}
+              progressive
+            />
+          ) : (
+            <BracketStage
+              knockout={results.knockout}
+              standings={standings}
+              onSetWinner={setMatchWinner}
+              progressive
+            />
+          )}
 
           <h2 className="lb-heading">Typy graczy — faza pucharowa</h2>
           <p className="legend">
