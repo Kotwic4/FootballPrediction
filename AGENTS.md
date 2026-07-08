@@ -90,10 +90,12 @@ Pure logic (no React — safe to import from Node, as `gen-players.mjs` does):
   spreadsheet: columns A–G are the template, each column from H is one player.
   Used only by `scripts/gen-players.mjs` at build/generation time.
 - `src/wikiResults.js` — scrapes live results from Wikipedia's REST parse API
-  (CORS-friendly, `origin=*`). English article is primary (updates sooner),
-  Polish is fallback; knockout winners are **unioned** across both. Fragile by
-  nature — parsing rules are documented inline (penalty shootouts, flag-only
-  anchors, en-dash minus signs). Touch carefully and read the comments first.
+  (CORS-friendly, `origin=*`). English Wikipedia only (the Polish article was
+  unreliable and was dropped): group matches come from the twelve per-group
+  articles, standings/goal stats from the main article, knockout winners
+  **unioned** across the main and knockout-stage articles. Fragile by nature —
+  parsing rules are documented inline (penalty shootouts, flag-only anchors,
+  en-dash minus signs). Touch carefully and read the comments first.
 
 React:
 

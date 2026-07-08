@@ -547,7 +547,8 @@ export default function Leaderboard() {
     setDownloading(true);
     setDownloadMsg(null);
     try {
-      const { groups, count, scored, unresolved, source, tiebreaks, stats, knockout } = await fetchWikiResults();
+      const { groups, count, scored, unresolved, source, tiebreaks, stats, knockout, failed } =
+        await fetchWikiResults();
       // Merge knockout winners raw; the auto-R32 effect normalises them against
       // the freshly recomputed round of 32 (pruning here would use the stale one).
       setResults((prev) => ({
@@ -559,14 +560,18 @@ export default function Leaderboard() {
       }));
       const koCount = Object.values(knockout).reduce((a, b) => a + b.length, 0);
       let msg;
-      if (count) {
+      if (count || koCount) {
+        const parts = [];
+        if (count) parts.push(`${count} wyników grupowych`);
+        if (koCount) parts.push(`${koCount} ${count ? '' : 'wyników '}pucharowych`);
         msg = {
-          kind: 'ok',
+          kind: failed ? 'warn' : 'ok',
           text:
-            `Pobrano ${count} wyników grupowych` +
-            (koCount ? ` i ${koCount} pucharowych` : '') +
-            ` (źródło: ${source}).`,
+            `Pobrano ${parts.join(' i ')} (źródło: ${source}).` +
+            (failed ? ' Uwaga: część stron Wikipedii nie wczytała się — spróbuj ponownie za chwilę.' : ''),
         };
+      } else if (failed) {
+        msg = { kind: 'warn', text: 'Nie udało się wczytać stron Wikipedii — spróbuj ponownie za chwilę.' };
       } else if (scored === 0) {
         msg = { kind: 'warn', text: 'Żaden mecz nie został jeszcze rozegrany na Wikipedii.' };
       } else if (unresolved) {
